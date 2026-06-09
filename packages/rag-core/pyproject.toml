@@ -1,0 +1,45 @@
+[project]
+name = "rag-core"
+version = "0.1.0"
+description = "Core domain, plugin contracts, indexing pipeline and retrieval for the RAG platform"
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    "sqlalchemy>=2.0.36",
+    "alembic>=1.14",
+    "psycopg[binary,pool]>=3.2",
+    "pgvector>=0.3.6",
+    "structlog>=24.4",
+    "httpx>=0.27",
+    "pypdf>=5.1",
+    "openpyxl>=3.1",
+    "procrastinate>=3.0",
+]
+
+[project.entry-points."rag.connectors"]
+upload = "rag_core.builtin.connectors.upload:UploadConnector"
+
+[project.entry-points."rag.parsers"]
+text = "rag_core.builtin.parsers.text:TextParser"
+markdown = "rag_core.builtin.parsers.markdown:MarkdownParser"
+html = "rag_core.builtin.parsers.html:HtmlParser"
+pdf = "rag_core.builtin.parsers.pdf:PdfParser"
+tabular = "rag_core.builtin.parsers.tabular:TabularParser"
+
+[project.entry-points."rag.transformers"]
+basic-cleanup = "rag_core.builtin.transformers.cleanup:BasicCleanupTransformer"
+
+[project.entry-points."rag.chunkers"]
+default = "rag_core.builtin.chunkers.default:DefaultChunker"
+
+[project.entry-points."rag.embedders"]
+openai = "rag_core.builtin.embedders.openai:OpenAIEmbedder"
+fake = "rag_core.builtin.embedders.fake:FakeEmbedder"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rag_core"]

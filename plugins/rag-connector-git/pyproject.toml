@@ -1,0 +1,19 @@
+[project]
+name = "rag-connector-git"
+version = "0.1.0"
+description = "Git repository connector (clone/pull + glob-filtered file ingestion)"
+requires-python = ">=3.12"
+dependencies = ["rag-core"]
+
+[project.entry-points."rag.connectors"]
+git = "rag_connector_git.connector:GitConnector"
+
+[tool.uv.sources]
+rag-core = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rag_connector_git"]

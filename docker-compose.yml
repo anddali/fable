@@ -1,0 +1,64 @@
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: rag
+      POSTGRES_PASSWORD: rag
+      POSTGRES_DB: rag
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rag -d rag"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  migrate:
+    build: .
+    command: ["sh", "-c", "alembic upgrade head && rag-apply-schema"]
+    environment: &app-env
+      RAG_DATABASE_URL: postgresql+psycopg://rag:rag@db:5432/rag
+      RAG_ENVIRONMENT: dev
+      RAG_AUTH__MODE: ${RAG_AUTH__MODE:-disabled}
+      RAG_AUTH__TENANT_ID: ${RAG_AUTH__TENANT_ID:-}
+      RAG_AUTH__AUDIENCE: ${RAG_AUTH__AUDIENCE:-}
+      RAG_EMBEDDING__PLUGIN: ${RAG_EMBEDDING__PLUGIN:-fake}
+      RAG_EMBEDDING__DIM: ${RAG_EMBEDDING__DIM:-1536}
+      RAG_BLOB_DIR: /data/blobs
+      RAG_CACHE_DIR: /data/cache
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  api:
+    build: .
+    environment: *app-env
+    ports:
+      - "${RAG_API_PORT:-8080}:8000"
+    volumes:
+      - appdata:/data
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  worker:
+    build: .
+    command: ["rag-worker"]
+    environment: *app-env
+    volumes:
+      - appdata:/data
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  pgdata:
+  appdata:

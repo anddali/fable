@@ -1,0 +1,19 @@
+[project]
+name = "rag-connector-confluence"
+version = "0.1.0"
+description = "Confluence Cloud connector for the RAG platform (space / page / tree targets)"
+requires-python = ">=3.12"
+dependencies = ["rag-core", "httpx>=0.27"]
+
+[project.entry-points."rag.connectors"]
+confluence = "rag_connector_confluence.connector:ConfluenceConnector"
+
+[tool.uv.sources]
+rag-core = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rag_connector_confluence"]

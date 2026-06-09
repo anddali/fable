@@ -1,0 +1,19 @@
+[project]
+name = "rag-connector-sharepoint"
+version = "0.1.0"
+description = "SharePoint document-library connector via Microsoft Graph"
+requires-python = ">=3.12"
+dependencies = ["rag-core", "httpx>=0.27"]
+
+[project.entry-points."rag.connectors"]
+sharepoint = "rag_connector_sharepoint.connector:SharePointConnector"
+
+[tool.uv.sources]
+rag-core = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rag_connector_sharepoint"]
