@@ -7,7 +7,7 @@ from pathlib import PurePosixPath
 from fastapi import APIRouter, HTTPException, UploadFile, status
 from sqlalchemy import select
 
-from rag_api.auth import CurrentPrincipal
+from rag_api.auth import CurrentUser
 from rag_api.deps import BlobStoreDep, DbSession, SettingsDep, collection_access
 from rag_api.dto import UploadItemOut
 from rag_core.db.models import Collection, Source, UploadItem
@@ -47,7 +47,7 @@ async def upload_file(
     session: DbSession,
     settings: SettingsDep,
     blob_store: BlobStoreDep,
-    principal: CurrentPrincipal,
+    principal: CurrentUser,
     collection: Collection = collection_access(CollectionRole.EDITOR),
 ) -> UploadItemOut:
     source = await _get_upload_source(session, collection.id, source_id)

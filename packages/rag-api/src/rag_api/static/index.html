@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RAG console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;700&family=Spline+Sans+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="app.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><circle cx='8' cy='8' r='6' fill='%2334d399'/></svg>">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
+</head>
+<body>
+<div id="boot" class="boot">
+  <div class="boot-mark"><span class="led led-on"></span> RAG console</div>
+  <div class="boot-msg mono">establishing session…</div>
+</div>
+<div id="login" class="login" hidden>
+  <div class="login-card">
+    <div class="login-mark"><span class="led led-on"></span></div>
+    <h1>RAG console</h1>
+    <p class="mono">retrieval platform · operations</p>
+    <button id="login-btn" class="btn btn-accent">Sign in with Microsoft</button>
+  </div>
+</div>
+<div id="app" class="shell" hidden>
+  <aside class="side">
+    <div class="side-mark">
+      <span class="led led-on"></span>
+      <div><strong>RAG</strong><span class="mono side-sub">console</span></div>
+    </div>
+    <nav id="nav">
+      <a href="#/dashboard" data-page="dashboard"><span class="nav-key mono">01</span>Dashboard</a>
+      <a href="#/collections" data-page="collections"><span class="nav-key mono">02</span>Collections</a>
+      <a href="#/keys" data-page="keys"><span class="nav-key mono">03</span>API keys</a>
+    </nav>
+    <div class="side-foot">
+      <div id="who" class="who"></div>
+      <button id="signout" class="btn btn-ghost btn-sm" hidden>Sign out</button>
+      <div id="env" class="mono env"></div>
+    </div>
+  </aside>
+  <main id="main" class="main"></main>
+</div>
+<div id="modal-root"></div>
+<div id="toast-root"></div>
+<script src="app.js"></script>
+</body>
+</html>

@@ -16,6 +16,7 @@ from rag_core.schemas import PipelineConfig, SearchHit
 class CollectionCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     description: str = ""
+    visibility: Literal["private", "public"] = "private"
     pipeline: PipelineConfig = Field(default_factory=PipelineConfig)
     sync_cron: str = "0 2 * * *"
     sync_enabled: bool = True
@@ -23,6 +24,7 @@ class CollectionCreate(BaseModel):
 
 class CollectionUpdate(BaseModel):
     description: str | None = None
+    visibility: Literal["private", "public"] | None = None
     pipeline: PipelineConfig | None = None
     sync_cron: str | None = None
     sync_enabled: bool | None = None
@@ -32,6 +34,7 @@ class CollectionOut(BaseModel):
     id: uuid.UUID
     name: str
     description: str
+    visibility: str
     pipeline: dict[str, Any]
     sync_cron: str
     sync_enabled: bool
@@ -127,6 +130,36 @@ class SyncRunOut(BaseModel):
     error: str
 
     model_config = {"from_attributes": True}
+
+
+# --- API keys ----------------------------------------------------------------
+
+
+class ApiKeyCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    # Collections this key may search; must be readable by the creator.
+    collection_ids: list[uuid.UUID] = Field(min_length=1)
+    expires_in_days: int | None = Field(default=None, ge=1, le=730)
+
+
+class ApiKeyOut(BaseModel):
+    id: uuid.UUID
+    name: str
+    prefix: str
+    owner_oid: str
+    owner_name: str
+    scopes: list[str]
+    revoked: bool
+    expires_at: datetime | None
+    last_used_at: datetime | None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class ApiKeyCreated(ApiKeyOut):
+    # Full secret — returned exactly once, never retrievable again.
+    secret: str
 
 
 # --- Search -----------------------------------------------------------------

@@ -11,7 +11,7 @@ from fastapi import Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from rag_api.auth import CurrentPrincipal
+from rag_api.auth import CurrentUser
 from rag_core.blobstore import BlobStore, LocalBlobStore
 from rag_core.config import Settings, get_settings
 from rag_core.db.models import Collection
@@ -54,23 +54,27 @@ async def load_collection(session: AsyncSession, collection_id: uuid.UUID) -> Co
 def check_collection_access(
     principal: Principal, collection: Collection, required: CollectionRole
 ) -> None:
+    public = collection.visibility == "public"
     try:
-        require_collection_role(principal, collection.principals, required)
+        require_collection_role(principal, collection.principals, required, public=public)
     except AuthorizationError as exc:
         # 404 for viewers without any access (don't leak existence), 403 when
         # they can see it but lack the higher role.
         from rag_core.rbac import effective_collection_role
 
-        if effective_collection_role(principal, collection.principals) is None:
+        if effective_collection_role(principal, collection.principals, public=public) is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Collection not found") from exc
         raise HTTPException(status.HTTP_403_FORBIDDEN, str(exc)) from exc
 
 
 def collection_access(required: CollectionRole):
-    """Path-param dependency: loads the collection and enforces the role."""
+    """Path-param dependency: loads the collection and enforces the role.
+
+    SSO-only by design: API keys are confined to /search.
+    """
 
     async def _dep(
-        collection_id: uuid.UUID, session: DbSession, principal: CurrentPrincipal
+        collection_id: uuid.UUID, session: DbSession, principal: CurrentUser
     ) -> Collection:
         collection = await load_collection(session, collection_id)
         check_collection_access(principal, collection, required)

@@ -71,14 +71,20 @@ The sync engine iterates each enabled source in its own transaction (one bad sou
 
 ## AuthN / AuthZ
 
-API is a pure OAuth2 resource server: clients bring Entra ID bearer tokens; the API validates signature (JWKS, cached), issuer, audience. No token issuance, no sessions, no secrets for interactive auth.
+API is a pure OAuth2 resource server: clients bring Entra ID bearer tokens; the API validates signature (JWKS, cached), issuer, audience. No token issuance, no sessions, no secrets for interactive auth. The management SPA signs in with MSAL (auth-code + PKCE) against its own SPA app registration.
 
 Two-layer RBAC, enforced in `rag_core.rbac` (pure functions, unit-tested):
 
-1. **Global roles** mapped from Entra app roles: `admin` (everything), `curator` (create collections), `reader` (API access; per-collection rights only).
-2. **Collection ACLs**: rows granting Entra users or **groups** `owner` / `editor` / `viewer`. Owner manages ACLs; editor manages sources/uploads/syncs; viewer searches. Creator becomes owner; admins are implicit owners. Group membership comes from the token's `groups` claim.
+1. **Global roles** mapped from Entra app roles: `admin` (everything, implicit owner of all collections, platform-wide analytics) and `user` (may create collections, becoming owner; reaches own/granted private collections plus any `public` collection).
+2. **Collection ACLs**: rows granting Entra users or **groups** `owner` / `editor` / `viewer`. Owner manages ACLs; editor manages sources/uploads/syncs; viewer searches. Collection `visibility=public` grants implicit viewer to every authenticated principal.
+
+**API keys** (`ragk_…`, SHA-256 stored, shown once): any signed-in user mints keys scoped to collections they can read at creation time. A key authenticates as its owner (oid only — no group claims) restricted to *scopes ∩ owner's current direct access*, may only call `/search`, and is revocable/expirable. Keys never carry admin powers and cannot mint keys.
 
 Failure shape is deliberate: no access → 404 (existence not leaked); insufficient role → 403. `RAG_AUTH__MODE=disabled` provides a dev principal and hard-fails in prod.
+
+## Management UI & analytics
+
+Static SPA (no build step — vanilla JS + Chart.js + MSAL from CDN) served by the API at `/ui/`, bootstrapped by the public `/ui-config` endpoint. Pages: dashboard, collections (sources, uploads, syncs, ACLs), API keys. Every `/search` writes a `query_logs` row (caller, auth method, latency, hit count); `/analytics/db` and `/analytics/queries` aggregate DB state and query behaviour — platform-wide for admins, scoped to own collections/queries for users.
 
 ## Operations
 

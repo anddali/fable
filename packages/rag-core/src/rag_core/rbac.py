@@ -3,9 +3,9 @@
 Two layers:
 
 1. **Global roles** (from Entra app roles, mapped via ``AuthSettings.role_map``):
-   - ``admin``    full platform control
-   - ``curator``  may create collections (becomes their owner)
-   - ``reader``   may call the API at all; access is then per-collection
+   - ``admin``  full platform control, implicit owner of every collection
+   - ``user``   regular user: may create collections (becoming their owner),
+                access their own private collections and any public collection
 
 2. **Collection ACLs** (rows in ``collection_principals``), granting an Entra
    user or group object id a collection role:
@@ -13,8 +13,12 @@ Two layers:
    - ``editor``  manage sources/uploads, trigger syncs + everything below
    - ``viewer``  search / read
 
-Retrieval enforces the same model: a search only ever touches collections the
-caller can view.
+Collections also carry a ``visibility``: ``private`` (ACL only) or ``public``
+(every authenticated principal gets implicit ``viewer``).
+
+API-key principals are derived from their owning user (oid only, no group
+claims) and additionally restricted to the key's collection scopes at search
+time; they can never reach management endpoints.
 """
 
 from __future__ import annotations
@@ -29,8 +33,7 @@ from rag_core.schemas import Principal
 
 class GlobalRole(StrEnum):
     ADMIN = "admin"
-    CURATOR = "curator"
-    READER = "reader"
+    USER = "user"
 
 
 class CollectionRole(StrEnum):
@@ -56,9 +59,12 @@ def map_global_roles(token_roles: Iterable[str], role_map: dict[str, str]) -> se
 
 
 def effective_collection_role(
-    principal: Principal, acl: Iterable[CollectionPrincipal | Any]
+    principal: Principal,
+    acl: Iterable[CollectionPrincipal | Any],
+    *,
+    public: bool = False,
 ) -> CollectionRole | None:
-    """Highest collection role granted to the principal directly or via groups."""
+    """Highest collection role granted directly, via groups, or via visibility."""
     if principal.is_admin:
         return CollectionRole.OWNER
     best: CollectionRole | None = None
@@ -71,6 +77,8 @@ def effective_collection_role(
         role = CollectionRole(entry.role)
         if best is None or _ROLE_ORDER[role] > _ROLE_ORDER[best]:
             best = role
+    if best is None and public:
+        return CollectionRole.VIEWER
     return best
 
 
@@ -78,12 +86,17 @@ def require_collection_role(
     principal: Principal,
     acl: Iterable[CollectionPrincipal | Any],
     required: CollectionRole,
+    *,
+    public: bool = False,
 ) -> CollectionRole:
-    actual = effective_collection_role(principal, acl)
+    actual = effective_collection_role(principal, acl, public=public)
     if actual is None or _ROLE_ORDER[actual] < _ROLE_ORDER[required]:
         raise AuthorizationError(f"requires collection role {required.value!r}")
     return actual
 
 
 def can_create_collections(principal: Principal) -> bool:
-    return bool({GlobalRole.ADMIN.value, GlobalRole.CURATOR.value} & principal.global_roles)
+    # Any interactively signed-in user may create collections; API keys can't.
+    return principal.auth_method == "sso" and bool(
+        {GlobalRole.ADMIN.value, GlobalRole.USER.value} & principal.global_roles
+    )

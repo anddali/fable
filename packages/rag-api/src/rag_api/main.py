@@ -4,8 +4,20 @@ from contextlib import asynccontextmanager
 
 import structlog
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
-from rag_api.routers import collections, health, plugins, search, sources, syncs, uploads
+from rag_api.routers import (
+    analytics,
+    apikeys,
+    collections,
+    health,
+    plugins,
+    search,
+    sources,
+    syncs,
+    ui,
+    uploads,
+)
 from rag_core.config import get_settings
 from rag_core.logging import configure_logging
 from rag_core.queue import get_app as get_queue_app
@@ -42,6 +54,10 @@ def create_app() -> FastAPI:
     app.include_router(syncs.router)
     app.include_router(search.router)
     app.include_router(plugins.router)
+    app.include_router(apikeys.router)
+    app.include_router(analytics.router)
+    app.include_router(ui.router)
+    app.mount("/ui", StaticFiles(directory=ui.STATIC_DIR, html=True), name="ui")
     return app
 
 

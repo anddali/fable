@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from rag_api.auth import CurrentPrincipal
+from rag_api.auth import CurrentUser
 from rag_api.deps import DbSession, collection_access, load_collection
 from rag_api.dto import AclEntryIn, AclEntryOut, CollectionCreate, CollectionOut, CollectionUpdate
 from rag_core.db.models import Collection, CollectionPrincipal
@@ -15,17 +15,19 @@ router = APIRouter(prefix="/collections", tags=["collections"])
 
 def _out(collection: Collection, principal) -> CollectionOut:
     out = CollectionOut.model_validate(collection)
-    role = effective_collection_role(principal, collection.principals)
+    role = effective_collection_role(
+        principal, collection.principals, public=collection.visibility == "public"
+    )
     out.my_role = role.value if role else None
     return out
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def create_collection(
-    body: CollectionCreate, session: DbSession, principal: CurrentPrincipal
+    body: CollectionCreate, session: DbSession, principal: CurrentUser
 ) -> CollectionOut:
     if not can_create_collections(principal):
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Requires curator or admin role")
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Requires an interactive user session")
     existing = await session.execute(select(Collection.id).where(Collection.name == body.name))
     if existing.scalar() is not None:
         raise HTTPException(status.HTTP_409_CONFLICT, f"Collection {body.name!r} already exists")
@@ -33,6 +35,7 @@ async def create_collection(
     collection = Collection(
         name=body.name,
         description=body.description,
+        visibility=body.visibility,
         pipeline=body.pipeline.model_dump(),
         sync_cron=body.sync_cron,
         sync_enabled=body.sync_enabled,
@@ -49,7 +52,7 @@ async def create_collection(
 
 
 @router.get("")
-async def list_collections(session: DbSession, principal: CurrentPrincipal) -> list[CollectionOut]:
+async def list_collections(session: DbSession, principal: CurrentUser) -> list[CollectionOut]:
     result = await session.execute(
         select(Collection).options(selectinload(Collection.principals)).order_by(Collection.name)
     )
@@ -57,7 +60,8 @@ async def list_collections(session: DbSession, principal: CurrentPrincipal) -> l
     visible = [
         c
         for c in collections
-        if principal.is_admin or effective_collection_role(principal, c.principals)
+        if principal.is_admin
+        or effective_collection_role(principal, c.principals, public=c.visibility == "public")
     ]
     return [_out(c, principal) for c in visible]
 
@@ -65,7 +69,7 @@ async def list_collections(session: DbSession, principal: CurrentPrincipal) -> l
 @router.get("/{collection_id}")
 async def get_collection(
     session: DbSession,
-    principal: CurrentPrincipal,
+    principal: CurrentUser,
     collection: Collection = collection_access(CollectionRole.VIEWER),
 ) -> CollectionOut:
     return _out(collection, principal)
@@ -75,11 +79,13 @@ async def get_collection(
 async def update_collection(
     body: CollectionUpdate,
     session: DbSession,
-    principal: CurrentPrincipal,
+    principal: CurrentUser,
     collection: Collection = collection_access(CollectionRole.OWNER),
 ) -> CollectionOut:
     if body.description is not None:
         collection.description = body.description
+    if body.visibility is not None:
+        collection.visibility = body.visibility
     if body.pipeline is not None:
         collection.pipeline = body.pipeline.model_dump()
     if body.sync_cron is not None:
@@ -114,7 +120,7 @@ async def list_permissions(
 async def replace_permissions(
     entries: list[AclEntryIn],
     session: DbSession,
-    principal: CurrentPrincipal,
+    principal: CurrentUser,
     collection: Collection = collection_access(CollectionRole.OWNER),
 ) -> list[AclEntryOut]:
     if not any(e.role == "owner" for e in entries):

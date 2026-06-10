@@ -15,13 +15,20 @@ from pydantic import BaseModel, Field
 
 
 class Principal(BaseModel):
-    """Authenticated caller. ``oid`` and ``group_ids`` are Entra object ids."""
+    """Authenticated caller. ``oid`` and ``group_ids`` are Entra object ids.
+
+    API-key callers get ``auth_method="api_key"``, the owning user's oid, no
+    group claims, and ``key_scopes`` (collection ids the key may search).
+    """
 
     oid: str
     name: str = ""
     email: str = ""
-    global_roles: set[str] = Field(default_factory=set)  # admin | curator | reader
+    global_roles: set[str] = Field(default_factory=set)  # admin | user
     group_ids: set[str] = Field(default_factory=set)
+    auth_method: Literal["sso", "api_key"] = "sso"
+    api_key_id: str | None = None
+    key_scopes: set[str] | None = None  # collection ids (str UUIDs)
 
     @property
     def is_admin(self) -> bool:

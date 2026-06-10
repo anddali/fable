@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import sys
 
 from rag_core.config import get_settings
 from rag_core.logging import configure_logging
@@ -24,7 +25,12 @@ def main() -> None:
                 install_signal_handlers=True,
             )
 
-    asyncio.run(_run())
+    if sys.platform == "win32":
+        # psycopg async needs a selector loop; win32 defaults to proactor.
+        with asyncio.Runner(loop_factory=asyncio.SelectorEventLoop) as runner:
+            runner.run(_run())
+    else:
+        asyncio.run(_run())
 
 
 if __name__ == "__main__":

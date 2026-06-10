@@ -26,10 +26,15 @@ class AuthSettings(BaseModel):
     role_map: dict[str, str] = Field(
         default_factory=lambda: {
             "Rag.Admin": "admin",
-            "Rag.Curator": "curator",
-            "Rag.Reader": "reader",
+            "Rag.User": "user",
         }
     )
+    # Role granted to authenticated users whose token carries no mapped app
+    # role. Set to "" to require explicit app-role assignment instead.
+    default_role: str = "user"
+    # Client id of the SPA app registration used by the management UI
+    # (authorization code + PKCE via MSAL in the browser).
+    spa_client_id: str = ""
 
     @property
     def issuer(self) -> str:

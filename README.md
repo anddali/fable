@@ -11,7 +11,9 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full design.
 - **Cron sync** per collection: a worker beat evaluates each collection's cron expression and runs delta syncs (content-hash based — unchanged documents are skipped, vanished ones are tombstoned).
 - **Indexing pipeline** per document: parse → transformer chain (cleanup/enrichment plugins) → chunking (**strictly non-overlapping**, structure-aware) → embed → pgvector.
 - **Retrieval service**: `POST /search` with vector or hybrid (vector + FTS, RRF-fused) modes, hard-filtered to collections the caller can read.
-- **Auth**: OAuth2 resource server validating Microsoft Entra ID bearer tokens. Global roles from Entra app roles (`Rag.Admin` / `Rag.Curator` / `Rag.Reader`), per-collection ACLs for Entra users and groups (`owner` / `editor` / `viewer`).
+- **Auth**: OAuth2 resource server validating Microsoft Entra ID bearer tokens. Two global roles from Entra app roles — `Rag.Admin` and `Rag.User` — plus per-collection ACLs for Entra users and groups (`owner` / `editor` / `viewer`). Collections are `private` (ACL only) or `public` (everyone gets viewer). Any user can create collections and becomes their owner.
+- **API keys**: any signed-in user can mint `ragk_…` keys scoped to collections they can read (the UI offers exactly that list). Keys are search-only — every management endpoint rejects them — and are stored hashed, shown once, revocable, optionally expiring.
+- **Management UI** at `/ui/`: MSAL (auth-code + PKCE) sign-in, dashboard with database analytics (documents, chunks, storage, queue, sync runs) and query analytics (volume, latency, top/recent queries — every `/search` is logged), collection/source/upload management, ACL editor, API key management. Admins see platform-wide analytics; users see their own.
 
 ## Repository layout
 
@@ -97,6 +99,7 @@ Each plugin declares a pydantic `config_model`; operator-supplied config is vali
 ## Entra ID setup (production)
 
 1. App registration for the API; expose it (Application ID URI → `RAG_AUTH__AUDIENCE`).
-2. Define app roles `Rag.Admin`, `Rag.Curator`, `Rag.Reader`; assign to users/groups on the enterprise application.
+2. Define app roles `Rag.Admin` and `Rag.User`; assign to users/groups on the enterprise application. Users without an app role get `RAG_AUTH__DEFAULT_ROLE` (default `user`; set to empty to require explicit assignment).
 3. Enable **group claims** (security groups) in the token configuration so group-based collection ACLs work.
-4. Client apps (SPA/CLI) acquire tokens via auth-code + PKCE; services via client credentials.
+4. Second app registration of type **SPA** for the management UI (`RAG_AUTH__SPA_CLIENT_ID`), redirect URI `https://<host>/ui/`, granted the API's delegated scope. The UI signs in with MSAL via auth-code + PKCE.
+5. Services use client credentials — or simpler, a scoped platform API key (`Authorization: Bearer ragk_…`).

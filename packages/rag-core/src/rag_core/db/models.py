@@ -28,7 +28,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from rag_core.db.base import Base, TimestampMixin, UUIDPKMixin
+from rag_core.db.base import Base, TimestampMixin, UUIDPKMixin, utcnow
 
 # Status / role values are plain strings with app-level validation: cheaper to
 # evolve than Postgres enums.
@@ -43,6 +43,8 @@ class Collection(UUIDPKMixin, TimestampMixin, Base):
 
     name: Mapped[str] = mapped_column(String(200), unique=True, nullable=False)
     description: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    # "private": ACL only. "public": every authenticated user gets viewer.
+    visibility: Mapped[str] = mapped_column(String(10), default="private", nullable=False)
     # PipelineConfig (parser/transformers/chunker plugin refs), see rag_core.schemas.
     pipeline: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, nullable=False)
     # Standard 5-field cron expression evaluated by the worker beat.
@@ -163,6 +165,50 @@ class Chunk(UUIDPKMixin, Base):
     embedding: Mapped[Any] = mapped_column(Vector(), nullable=True)
 
     document: Mapped[Document] = relationship(back_populates="chunks")
+
+
+class ApiKey(UUIDPKMixin, TimestampMixin, Base):
+    """Programmatic search credential, scoped to specific collections.
+
+    Only the SHA-256 of the secret is stored; the secret (``ragk_...``) is
+    shown exactly once at creation. Scopes are collection ids that were
+    readable by the owner at creation time; at request time access is the
+    intersection of scopes with what the owner can still read.
+    """
+
+    __tablename__ = "api_keys"
+
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    # First characters of the secret, for display/identification only.
+    prefix: Mapped[str] = mapped_column(String(16), nullable=False)
+    key_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    owner_oid: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    owner_name: Mapped[str] = mapped_column(String(200), default="", nullable=False)
+    # list[str] of collection UUIDs.
+    scopes: Mapped[list[str]] = mapped_column(JSONB, default=list, nullable=False)
+    revoked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class QueryLog(UUIDPKMixin, Base):
+    """One row per /search call — feeds the query-analytics dashboard."""
+
+    __tablename__ = "query_logs"
+
+    principal_oid: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    principal_name: Mapped[str] = mapped_column(String(200), default="", nullable=False)
+    auth_method: Mapped[str] = mapped_column(String(10), default="sso", nullable=False)
+    api_key_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True))
+    query: Mapped[str] = mapped_column(Text, nullable=False)
+    mode: Mapped[str] = mapped_column(String(10), default="hybrid", nullable=False)
+    top_k: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    collection_ids: Mapped[list[str]] = mapped_column(JSONB, default=list, nullable=False)
+    hit_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    latency_ms: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, nullable=False, index=True
+    )
 
 
 class SyncRun(UUIDPKMixin, Base):

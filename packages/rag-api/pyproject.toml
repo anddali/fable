@@ -11,6 +11,9 @@ dependencies = [
     "python-multipart>=0.0.18",
 ]
 
+[project.scripts]
+rag-api = "rag_api.__main__:main"
+
 [tool.uv.sources]
 rag-core = { workspace = true }
 

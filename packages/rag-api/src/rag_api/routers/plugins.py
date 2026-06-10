@@ -8,7 +8,7 @@ from rag_core import plugins
 router = APIRouter(prefix="/plugins", tags=["plugins"])
 
 
-@router.get("", dependencies=[require_global("curator")])
+@router.get("", dependencies=[require_global("user")])
 async def list_plugins() -> dict:
     """All installed plugins per kind, with their JSON config schemas."""
     return plugins.describe_all()
