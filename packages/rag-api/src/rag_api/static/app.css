@@ -169,6 +169,16 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
 @keyframes rise { from { transform: translateY(8px); opacity: 0; } }
 
 .chart-box { position: relative; height: 230px; }
+
+/* code blocks (docs) */
+.codeblock { position: relative; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; margin: 0 0 6px; }
+.codeblock pre { margin: 0; padding: 14px 16px; overflow-x: auto; font-family: var(--mono); font-size: 12.5px; line-height: 1.6; color: var(--text); }
+.codeblock .copy-btn { position: absolute; top: 8px; right: 8px; opacity: 0.6; }
+.codeblock .copy-btn:hover { opacity: 1; }
+.code-cm { color: var(--faint); }
+.code-str { color: var(--accent); }
+.code-kw { color: var(--blue); }
+.doc-note { border-left: 2px solid var(--accent-dim); border-radius: 0; padding: 8px 14px; margin: 14px 0; color: var(--muted); font-size: 13px; background: var(--panel-2); }
 .empty { color: var(--faint); font-family: var(--mono); font-size: 12px; padding: 18px 4px; letter-spacing: 0.08em; }
 .kv { display: grid; grid-template-columns: auto 1fr; gap: 3px 18px; font-size: 13px; }
 .kv dt { color: var(--muted); font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; padding-top: 2px; }

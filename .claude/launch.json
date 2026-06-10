@@ -3,8 +3,12 @@
   "configurations": [
     {
       "name": "rag-api-local",
-      "runtimeExecutable": "uv",
-      "runtimeArgs": ["run", "rag-api", "--port", "8741"],
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-Command",
+        "$env:RAG_AUTH__MODE='disabled'; uv run rag-api --port 8741"
+      ],
       "port": 8741
     }
   ]

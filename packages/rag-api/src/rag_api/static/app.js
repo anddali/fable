@@ -143,7 +143,8 @@ function route() {
   const render =
     page === "collections" && id
       ? () => collectionDetail(main, id)
-      : { dashboard, collections: collectionsPage, keys: keysPage }[page] || dashboard;
+      : { dashboard, collections: collectionsPage, keys: keysPage, docs: docsPage }[page] ||
+        dashboard;
   Promise.resolve(render(main)).catch((e) => {
     main.innerHTML = `<div class="empty">error · ${esc(e.message)}</div>`;
   });
@@ -707,6 +708,157 @@ const keysTable = (keys) =>
     <td>${k.revoked ? "" : `<button class="btn btn-sm btn-danger" data-revoke="${k.id}">Revoke</button>`}</td></tr>`
     )
     .join("")}</tbody></table>`;
+
+/* ------------------------------------------------------------------- docs */
+const _snippets = {};
+
+function codeCard(key, title, code) {
+  _snippets[key] = code;
+  return `<div class="card section-gap"><h2>${esc(title)}</h2>
+    <div class="codeblock"><button class="btn btn-sm btn-ghost copy-btn" data-copy="${key}">Copy</button>
+    <pre>${esc(code)}</pre></div></div>`;
+}
+
+async function docsPage(main) {
+  const cols = await api("/collections").catch(() => []);
+  const origin = location.origin;
+
+  const curlSnippet = [
+    `curl -X POST ${origin}/search \\`,
+    `  -H "Authorization: Bearer $RAG_API_KEY" \\`,
+    `  -H "Content-Type: application/json" \\`,
+    `  -d '{`,
+    `    "query": "how do I request vacation?",`,
+    `    "top_k": 5,`,
+    `    "mode": "hybrid"`,
+    `  }'`,
+  ].join("\n");
+
+  const pySnippet = [
+    `import os`,
+    `import requests`,
+    ``,
+    `RAG_URL = "${origin}"`,
+    `API_KEY = os.environ["RAG_API_KEY"]  # ragk_... from the API keys page`,
+    ``,
+    `def search(query: str, top_k: int = 5, collection_ids: list[str] | None = None):`,
+    `    resp = requests.post(`,
+    `        f"{RAG_URL}/search",`,
+    `        headers={"Authorization": f"Bearer {API_KEY}"},`,
+    `        json={`,
+    `            "query": query,`,
+    `            "top_k": top_k,`,
+    `            "mode": "hybrid",  # or "vector"`,
+    `            # omit / empty = every collection the key is scoped to`,
+    `            "collection_ids": collection_ids or [],`,
+    `        },`,
+    `        timeout=30,`,
+    `    )`,
+    `    resp.raise_for_status()`,
+    `    return resp.json()["hits"]`,
+    ``,
+    `for hit in search("how do I request vacation?"):`,
+    `    print(f"{hit['score']:.3f}  {hit['title']}  ({hit['uri']})")`,
+    `    print(hit["text"][:300], "\\n")`,
+  ].join("\n");
+
+  const jsSnippet = [
+    `const RAG_URL = "${origin}";`,
+    `const API_KEY = process.env.RAG_API_KEY; // ragk_... from the API keys page`,
+    ``,
+    `async function search(query, { topK = 5, collectionIds = [] } = {}) {`,
+    `  const res = await fetch(\`\${RAG_URL}/search\`, {`,
+    `    method: "POST",`,
+    `    headers: {`,
+    `      "Authorization": \`Bearer \${API_KEY}\`,`,
+    `      "Content-Type": "application/json",`,
+    `    },`,
+    `    body: JSON.stringify({`,
+    `      query,`,
+    `      top_k: topK,`,
+    `      mode: "hybrid", // or "vector"`,
+    `      collection_ids: collectionIds, // [] = all collections in key scope`,
+    `    }),`,
+    `  });`,
+    `  if (!res.ok) throw new Error(\`search failed: \${res.status} \${await res.text()}\`);`,
+    `  const { hits } = await res.json();`,
+    `  return hits;`,
+    `}`,
+    ``,
+    `const hits = await search("how do I request vacation?");`,
+    `for (const h of hits) console.log(h.score.toFixed(3), h.title, h.uri);`,
+  ].join("\n");
+
+  const responseSample = [
+    `{`,
+    `  "hits": [`,
+    `    {`,
+    `      "chunk_id": "a6558181-…",`,
+    `      "document_id": "0ed45dc3-…",`,
+    `      "collection_id": "3ae2fdee-…",`,
+    `      "score": 0.0323,`,
+    `      "title": "handbook.md",`,
+    `      "uri": "upload://…/handbook.md",`,
+    `      "ordinal": 0,`,
+    `      "text": "[Employee Handbook > Vacation policy]\\nFull-time employees accrue …",`,
+    `      "metadata": { "heading_path": "Employee Handbook > Vacation policy" }`,
+    `    }`,
+    `  ],`,
+    `  "searched_collection_ids": ["3ae2fdee-…"]`,
+    `}`,
+  ].join("\n");
+
+  main.innerHTML = `
+  <div class="page-head">
+    <div><div class="crumb">04 · reference</div><h1>Querying the API</h1></div>
+    <a class="btn btn-sm" href="/docs" target="_blank" rel="noopener">OpenAPI reference</a>
+  </div>
+  <div class="card">
+    <h2>how it works</h2>
+    <p>1 · Mint a key on the <a href="#/keys">API keys</a> page, scoped to the collections it may search. The secret (<span class="mono">ragk_…</span>) is shown once — store it as a secret (env var, vault), never in code.</p>
+    <p>2 · Call <span class="mono">POST ${esc(origin)}/search</span> with the key as a bearer token. Keys can <em>only</em> search: every management endpoint rejects them.</p>
+    <p>3 · Feed the returned chunks to your LLM as context. Each hit carries its source <span class="mono">uri</span> for citations.</p>
+    <div class="doc-note">Results are permission-filtered server-side: a key only ever sees its scoped collections, and only while its owner still has access to them. Revoke keys anytime from the API keys page.</div>
+  </div>
+
+  <div class="card section-gap"><h2>request fields — POST /search</h2>
+  <table><thead><tr><th>field</th><th>type</th><th>notes</th></tr></thead><tbody>
+    <tr><td class="mono">query</td><td class="dim">string</td><td>required, 1–4000 chars</td></tr>
+    <tr><td class="mono">collection_ids</td><td class="dim">uuid[]</td><td>optional — empty/omitted searches every collection in the key's scope; unknown or out-of-scope ids return 404</td></tr>
+    <tr><td class="mono">top_k</td><td class="dim">int</td><td>1–50, default 8</td></tr>
+    <tr><td class="mono">mode</td><td class="dim">string</td><td><span class="mono">hybrid</span> (vector + full-text, default) or <span class="mono">vector</span></td></tr>
+  </tbody></table>
+  ${
+    cols.length
+      ? `<h2 class="section-gap">your collection ids</h2><table><tbody>${cols
+          .map(
+            (c) =>
+              `<tr><td>${esc(c.name)} ${visBadge(c.visibility)}</td><td class="mono tiny">${c.id}</td></tr>`
+          )
+          .join("")}</tbody></table>`
+      : ""
+  }</div>
+
+  ${codeCard("curl", "curl", curlSnippet)}
+  ${codeCard("python", "python", pySnippet)}
+  ${codeCard("js", "javascript / node 18+", jsSnippet)}
+  ${codeCard("resp", "response shape", responseSample)}
+
+  <div class="card section-gap"><h2>errors</h2>
+  <table><thead><tr><th>status</th><th>meaning</th></tr></thead><tbody>
+    <tr><td class="mono">401</td><td>missing, invalid, expired or revoked key</td></tr>
+    <tr><td class="mono">403</td><td>key used on a non-search endpoint</td></tr>
+    <tr><td class="mono">404</td><td>collection id unknown <span class="dim">or outside the key's scope (indistinguishable by design)</span></td></tr>
+    <tr><td class="mono">422</td><td>invalid request body (see response detail)</td></tr>
+  </tbody></table></div>`;
+
+  main.querySelectorAll("[data-copy]").forEach((b) => {
+    b.onclick = () => {
+      navigator.clipboard.writeText(_snippets[b.dataset.copy]);
+      toast("copied");
+    };
+  });
+}
 
 /* ------------------------------------------------------------------- init */
 window.closeModal = closeModal;
