@@ -29,7 +29,8 @@ async def ui_config() -> dict:
         "tenant_id": settings.auth.tenant_id,
         "spa_client_id": settings.auth.spa_client_id,
         # Delegated scope the SPA requests for this API.
-        "api_scope": f"{settings.auth.audience}/.default" if settings.auth.audience else "",
+        "api_scope": settings.auth.api_scope
+        or (f"{settings.auth.audience}/.default" if settings.auth.audience else ""),
         "environment": settings.environment,
     }
 

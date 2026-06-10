@@ -35,6 +35,9 @@ class AuthSettings(BaseModel):
     # Client id of the SPA app registration used by the management UI
     # (authorization code + PKCE via MSAL in the browser).
     spa_client_id: str = ""
+    # Delegated scope the SPA requests, e.g. "api://<api-client-id>/access_as_user".
+    # Empty = derived as "<audience>/.default".
+    api_scope: str = ""
 
     @property
     def issuer(self) -> str:

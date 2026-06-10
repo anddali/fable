@@ -56,13 +56,18 @@ def _unauthorized(detail: str) -> HTTPException:
 
 def decode_token(token: str, settings: Settings) -> Principal:
     auth = settings.auth
+    # Entra v2 access tokens carry aud as either the API client id (GUID) or
+    # its Application ID URI, depending on how the scope was requested.
+    audiences = [auth.audience]
+    if auth.audience and not auth.audience.startswith("api://"):
+        audiences.append(f"api://{auth.audience}")
     try:
         signing_key = _jwk_client(auth.jwks_uri).get_signing_key_from_jwt(token)
         claims = jwt.decode(
             token,
             signing_key.key,
             algorithms=["RS256"],
-            audience=auth.audience,
+            audience=audiences,
             issuer=auth.issuer,
             options={"require": ["exp", "iss", "aud", "sub"]},
         )
