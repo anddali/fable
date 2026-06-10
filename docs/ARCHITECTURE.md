@@ -93,6 +93,25 @@ Static SPA (no build step — vanilla JS + Chart.js + MSAL from CDN) served by t
 - **CI**: ruff (lint+format), pytest, Docker build. Tests are DB-free by design at this stage; add a Postgres service container for integration tests next.
 - **Image**: one multi-stage uv image, non-root, role chosen by command.
 
+## Scaling the query path
+
+The architecture scales by adding replicas, not by rewriting — but know the order in which it bends.
+
+**What scales unchanged**
+- The API is stateless on the search path (per-request JWT validation with an in-process JWKS cache, RBAC computed from the DB, jobs deferred through Postgres): run N replicas behind a load balancer, no sticky sessions.
+- Workers scale horizontally for free — Procrastinate distributes jobs via Postgres row locks, and the cron beat's `queueing_lock` prevents duplicate firing across workers.
+- pgvector HNSW stays in single-digit milliseconds for hundreds of thousands of chunks; observed search latency is dominated by the embedding call, not the index.
+
+**The one hard coupling**: `LocalBlobStore` writes to a local volume, so multi-node API replicas need shared storage — either mount a shared filesystem (Azure Files works with zero code change) or implement `rag_core.blobstore.BlobStore` against Azure Blob/S3 (~40 lines). Only uploads/indexing touch blobs; the query path never does.
+
+**Bottlenecks, in the order you hit them**
+1. **Embedding provider latency + rate limits** — one external call (~50–200 ms) per query dominates latency and caps throughput before infrastructure does. Mitigate with a higher-tier provider and a query-embedding cache for repeated queries.
+2. **Per-request inefficiencies** — the embedder opens a fresh httpx client per request, and the ACL resolution loads all collections + principals per search. First scaling PR: module-level HTTP client + short-TTL cache of principal → readable collection ids.
+3. **Postgres connections** — each replica pools 10+10; at ~10 replicas add PgBouncer.
+4. **Postgres itself** — one instance serves vectors, FTS, queue, and query logs. Scale vertically first (queue traffic is light), then split search reads onto a read replica (query-log inserts stay on the primary).
+
+**Rule-of-thumb capacity**: as-is, tens of QPS (embedding-bound); with item 2 fixed, low hundreds on a mid-size Postgres; PgBouncer + read replica + embedding cache carries to thousands, beyond which a dedicated vector store becomes a discussion worth having — and not before.
+
 ## Deliberate MVP cuts (and where they'd go)
 
 | Cut | Where it lands later |
