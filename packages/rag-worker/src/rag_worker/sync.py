@@ -126,6 +126,7 @@ async def _sync_source(
             counts["updated"] += 1
 
         payload = raw.payload()
+        old_blob_key = doc.blob_key
         blob_key = document_blob_key(source.collection_id, doc.id, raw.content_hash)
         blob_store.put(blob_key, payload)
 
@@ -140,6 +141,10 @@ async def _sync_source(
         doc.error = ""
         doc.source_updated_at = raw.source_updated_at
         to_index.append(doc.id)
+
+        # Content changed: drop the superseded payload so blobs don't orphan.
+        if old_blob_key and old_blob_key != blob_key:
+            blob_store.delete(old_blob_key)
 
     # Tombstone vanished documents (only safe with full enumeration).
     if not type(connector).incremental:
