@@ -75,7 +75,7 @@ class RawDocument(BaseModel):
 # Parsed representation
 # ---------------------------------------------------------------------------
 
-BlockType = Literal["heading", "paragraph", "code", "table_row", "list_item"]
+BlockType = Literal["heading", "paragraph", "code", "table_row", "list_item", "image"]
 
 
 class Block(BaseModel):
@@ -112,13 +112,16 @@ class PipelineConfig(BaseModel):
     """Which plugins a collection uses for indexing.
 
     ``parser`` is optional: when unset, the parser is auto-selected from the
-    document mime type. The embedder is platform-global (see EmbeddingSettings)
-    and intentionally not configurable per collection.
+    document mime type. ``vision_llm`` is optional: when set, ``image`` blocks
+    emitted by the parser are described by the vision plugin and indexed as
+    text; when unset, image blocks are dropped. The embedder is platform-global
+    (see EmbeddingSettings) and intentionally not configurable per collection.
     """
 
     parser: PluginRef | None = None
     transformers: list[PluginRef] = Field(default_factory=lambda: [PluginRef(name="basic-cleanup")])
     chunker: PluginRef = Field(default_factory=lambda: PluginRef(name="default"))
+    vision_llm: PluginRef | None = None
 
 
 # ---------------------------------------------------------------------------

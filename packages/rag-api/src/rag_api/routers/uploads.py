@@ -25,6 +25,8 @@ ALLOWED_MIME = {
     ".markdown": "text/markdown",
     ".csv": "text/csv",
     ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 }
 
 

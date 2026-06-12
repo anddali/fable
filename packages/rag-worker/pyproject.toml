@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Background worker: cron-scheduled source syncs and document indexing"
 requires-python = ">=3.12"
 dependencies = [
-    "rag-core",
+    "rag-core[docling]",
     "procrastinate>=3.0",
     "croniter>=3.0",
 ]

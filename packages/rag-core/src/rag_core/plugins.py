@@ -13,6 +13,7 @@ from rag_core.interfaces import (
     EmbedderPlugin,
     ParserPlugin,
     TransformerPlugin,
+    VisionPlugin,
 )
 
 GROUPS: dict[str, tuple[str, type[BasePlugin]]] = {
@@ -21,6 +22,7 @@ GROUPS: dict[str, tuple[str, type[BasePlugin]]] = {
     "transformer": ("rag.transformers", TransformerPlugin),
     "chunker": ("rag.chunkers", ChunkerPlugin),
     "embedder": ("rag.embedders", EmbedderPlugin),
+    "vision": ("rag.vision", VisionPlugin),
 }
 
 
@@ -69,7 +71,12 @@ def create(kind: str, name: str, config: dict[str, Any] | None = None) -> Any:
 def select_parser(mime_type: str) -> ParserPlugin:
     """Auto-select a parser by mime type (used when the pipeline doesn't pin one)."""
     base_mime = mime_type.split(";")[0].strip().lower()
-    for cls in available("parser").values():
+    candidates = sorted(
+        available("parser").values(),
+        key=lambda cls: cls.priority,  # type: ignore[attr-defined]
+        reverse=True,
+    )
+    for cls in candidates:
         if base_mime in cls.media_types:  # type: ignore[attr-defined]
             return cls.from_config({})
     # text/* falls back to the plain text parser rather than failing.

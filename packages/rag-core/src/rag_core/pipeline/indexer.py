@@ -6,6 +6,8 @@ transaction, so a failed run leaves the previous index state intact.
 
 from __future__ import annotations
 
+import asyncio
+import base64
 import uuid
 from datetime import UTC, datetime
 
@@ -17,7 +19,7 @@ from rag_core import plugins
 from rag_core.blobstore import BlobStore
 from rag_core.config import Settings
 from rag_core.db.models import Chunk, Collection, Document
-from rag_core.schemas import PipelineConfig, RawDocument
+from rag_core.schemas import Block, ParsedDocument, PipelineConfig, RawDocument
 
 log = structlog.get_logger(__name__)
 
@@ -60,7 +62,11 @@ async def index_document(
             parser = plugins.create("parser", pipeline.parser.name, pipeline.parser.config)
         else:
             parser = plugins.select_parser(document.mime_type)
-        parsed = parser.parse(raw)
+        # Parsing is CPU-bound (docling runs layout/table models for seconds
+        # per page); keep the worker event loop responsive.
+        parsed = await asyncio.to_thread(parser.parse, raw)
+
+        parsed = await _describe_images(parsed, pipeline)
 
         for ref in pipeline.transformers:
             transformer = plugins.create("transformer", ref.name, ref.config)
@@ -103,6 +109,41 @@ async def index_document(
         document.error = str(exc)[:4000]
         log.exception("index.failed", document_id=str(document.id))
         raise
+
+
+async def _describe_images(parsed: ParsedDocument, pipeline: PipelineConfig) -> ParsedDocument:
+    """Turn ``image`` blocks into text via the collection's vision plugin.
+
+    Without a configured ``vision_llm`` (or for images the plugin returns
+    nothing useful about) image blocks are dropped. Image bytes live only in
+    block metadata during indexing and never reach the database.
+    """
+    image_blocks = [b for b in parsed.blocks if b.type == "image"]
+    descriptions: dict[int, str] = {}
+    if image_blocks and pipeline.vision_llm:
+        vision = plugins.create("vision", pipeline.vision_llm.name, pipeline.vision_llm.config)
+        images = [
+            (
+                base64.b64decode(b.metadata.get("image_b64", "")),
+                b.metadata.get("image_mime", "image/png"),
+            )
+            for b in image_blocks
+        ]
+        results = await vision.describe(images)
+        descriptions = {id(b): desc for b, desc in zip(image_blocks, results, strict=True)}
+
+    blocks: list[Block] = []
+    for block in parsed.blocks:
+        if block.type != "image":
+            blocks.append(block)
+            continue
+        description = descriptions.get(id(block), "").strip()
+        if not description:
+            continue
+        metadata = {k: v for k, v in block.metadata.items() if k not in ("image_b64", "image_mime")}
+        blocks.append(Block(type="paragraph", text=f"[Figure: {description}]", metadata=metadata))
+    parsed.blocks = blocks
+    return parsed
 
 
 async def remove_document_chunks(session: AsyncSession, document_id: uuid.UUID) -> None:

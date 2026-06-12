@@ -27,9 +27,25 @@ def test_liveness(client):
 
 def test_plugins_endpoint_lists_all_kinds(client):
     body = client.get("/plugins").json()
-    assert set(body) == {"connector", "parser", "transformer", "chunker", "embedder"}
+    assert set(body) == {"connector", "parser", "transformer", "chunker", "embedder", "vision"}
     connector_names = {p["name"] for p in body["connector"]}
     assert {"upload", "confluence", "sharepoint", "git", "slack"} <= connector_names
+
+
+def test_mcp_exposes_exactly_the_search_tools():
+    from fastapi_mcp import FastApiMCP
+
+    from rag_api.routers import search
+
+    app = FastAPI()
+    app.include_router(search.router)
+    mcp = FastApiMCP(
+        app, include_operations=["search_documents", "list_searchable_collections"]
+    )
+    tools = {t.name: t for t in mcp.tools}
+    assert set(tools) == {"search_documents", "list_searchable_collections"}
+    assert "Semantic search" in tools["search_documents"].description
+    assert "collections the caller can search" in tools["list_searchable_collections"].description
 
 
 def test_auth_disabled_forbidden_in_prod(monkeypatch):

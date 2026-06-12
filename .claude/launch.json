@@ -7,7 +7,7 @@
       "runtimeArgs": [
         "-NoProfile",
         "-Command",
-        "$env:RAG_AUTH__MODE='disabled'; uv run rag-api --port 8741"
+        "$env:RAG_AUTH__MODE='disabled'; $env:RAG_EMBEDDING__CONFIG='{\"model\":\"nomic-embed-text\",\"base_url\":\"http://localhost:11434/v1\",\"api_key_env\":\"OLLAMA_API_KEY\"}'; $env:OLLAMA_API_KEY='ollama'; uv run rag-api --port 8741"
       ],
       "port": 8741
     }

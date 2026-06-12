@@ -17,6 +17,12 @@ dependencies = [
     "procrastinate>=3.0",
 ]
 
+[project.optional-dependencies]
+# Layout-aware parsing (heavy: pulls in torch + layout/table models).
+# Installed by rag-worker; the API discovers the plugin without it because
+# the docling import is lazy.
+docling = ["docling>=2.15"]
+
 [project.entry-points."rag.connectors"]
 upload = "rag_core.builtin.connectors.upload:UploadConnector"
 
@@ -26,6 +32,7 @@ markdown = "rag_core.builtin.parsers.markdown:MarkdownParser"
 html = "rag_core.builtin.parsers.html:HtmlParser"
 pdf = "rag_core.builtin.parsers.pdf:PdfParser"
 tabular = "rag_core.builtin.parsers.tabular:TabularParser"
+docling = "rag_core.builtin.parsers.docling:DoclingParser"
 
 [project.entry-points."rag.transformers"]
 basic-cleanup = "rag_core.builtin.transformers.cleanup:BasicCleanupTransformer"
@@ -36,6 +43,10 @@ default = "rag_core.builtin.chunkers.default:DefaultChunker"
 [project.entry-points."rag.embedders"]
 openai = "rag_core.builtin.embedders.openai:OpenAIEmbedder"
 fake = "rag_core.builtin.embedders.fake:FakeEmbedder"
+
+[project.entry-points."rag.vision"]
+openai-compat = "rag_core.builtin.vision.openai_compat:OpenAICompatVision"
+anthropic = "rag_core.builtin.vision.anthropic:AnthropicVision"
 
 [build-system]
 requires = ["hatchling"]

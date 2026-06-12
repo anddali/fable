@@ -130,6 +130,80 @@ const statusBadge = (s) =>
     deleted: `<span class="badge">deleted</span>`,
   })[s] || `<span class="badge">${esc(s)}</span>`;
 
+/* --------------------------------------------------------------- pipeline */
+// Prefills for the vision config editor; everything stays editable.
+const VISION_CFG_PRESETS = {
+  "openai-compat": {
+    base_url: "http://host.docker.internal:11434/v1",
+    model: "gemma3:4b",
+    api_key_env: "OLLAMA_API_KEY",
+  },
+  anthropic: { model: "claude-haiku-4-5-20251001", api_key_env: "ANTHROPIC_API_KEY" },
+};
+
+function pipelineFieldsHtml(plugins, pipeline = {}) {
+  const parserOpts = [`<option value="">auto — pick by file type</option>`]
+    .concat(
+      plugins.parser.map(
+        (p) =>
+          `<option value="${esc(p.name)}" ${pipeline.parser?.name === p.name ? "selected" : ""}>${esc(p.name)}</option>`
+      )
+    )
+    .join("");
+  const visionOpts = [`<option value="">off — figures are dropped</option>`]
+    .concat(
+      plugins.vision.map(
+        (p) =>
+          `<option value="${esc(p.name)}" ${pipeline.vision_llm?.name === p.name ? "selected" : ""}>${esc(p.name)}</option>`
+      )
+    )
+    .join("");
+  const visionCfg = pipeline.vision_llm
+    ? JSON.stringify(pipeline.vision_llm.config || {}, null, 2)
+    : "";
+  return `
+  <label class="f"><span>parser</span><select id="pf-parser">${parserOpts}</select></label>
+  <label class="f"><span>vision LLM — describes figures &amp; diagrams in PDFs</span>
+    <select id="pf-vision">${visionOpts}</select></label>
+  <label class="f" id="pf-vision-cfg-wrap" ${pipeline.vision_llm ? "" : "hidden"}>
+    <span>vision config (json)</span><textarea id="pf-vision-cfg" rows="5">${esc(visionCfg)}</textarea></label>
+  <div id="pf-hint" class="dim tiny mono"></div>`;
+}
+
+function wirePipelineFields(plugins) {
+  const visionSel = $("#pf-vision");
+  const hint = () => {
+    const p = plugins.vision.find((x) => x.name === visionSel.value);
+    const props = Object.keys(p?.config_schema?.properties || {});
+    $("#pf-hint").textContent = props.length ? `vision fields: ${props.join(", ")}` : "";
+  };
+  visionSel.onchange = () => {
+    const wrap = $("#pf-vision-cfg-wrap");
+    wrap.hidden = !visionSel.value;
+    if (visionSel.value)
+      $("#pf-vision-cfg").value = JSON.stringify(
+        VISION_CFG_PRESETS[visionSel.value] || {},
+        null,
+        2
+      );
+    hint();
+  };
+  hint();
+}
+
+// Merges the form into the existing pipeline so chunker/transformer
+// customizations made via the API survive a UI edit.
+function readPipelineFields(pipeline = {}) {
+  const out = { ...pipeline };
+  const parser = $("#pf-parser").value;
+  out.parser = parser ? { name: parser, config: pipeline.parser?.config || {} } : null;
+  const vision = $("#pf-vision").value;
+  out.vision_llm = vision
+    ? { name: vision, config: JSON.parse($("#pf-vision-cfg").value || "{}") }
+    : null;
+  return out;
+}
+
 /* ----------------------------------------------------------------- router */
 function route() {
   destroyCharts();
@@ -375,7 +449,8 @@ async function collectionsPage(main) {
   $("#new-col").onclick = newCollectionModal;
 }
 
-function newCollectionModal() {
+async function newCollectionModal() {
+  const plugins = await api("/plugins");
   modal(`<h3>New collection</h3>
   <label class="f"><span>name</span><input id="nc-name" type="text" placeholder="engineering-handbook"></label>
   <label class="f"><span>description</span><input id="nc-desc" type="text"></label>
@@ -383,8 +458,10 @@ function newCollectionModal() {
     <option value="private">private — only people you grant access</option>
     <option value="public">public — readable by everyone</option></select></label>
   <label class="f"><span>sync schedule (cron)</span><input id="nc-cron" type="text" value="0 2 * * *"></label>
+  ${pipelineFieldsHtml(plugins)}
   <div class="row spread"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
   <button id="nc-go" class="btn btn-accent">Create</button></div>`);
+  wirePipelineFields(plugins);
   $("#nc-go").onclick = async () => {
     try {
       const c = await api("/collections", {
@@ -394,6 +471,7 @@ function newCollectionModal() {
           description: $("#nc-desc").value.trim(),
           visibility: $("#nc-vis").value,
           sync_cron: $("#nc-cron").value.trim() || "0 2 * * *",
+          pipeline: readPipelineFields(),
         },
       });
       closeModal();
@@ -437,9 +515,19 @@ async function collectionDetail(main, id) {
           <dt>description</dt><dd>${esc(col.description || "—")}</dd>
           <dt>cron</dt><dd class="mono">${esc(col.sync_cron)} ${col.sync_enabled ? "" : "(disabled)"}</dd>
           <dt>next sync</dt><dd>${fmtDate(col.next_sync_at)}</dd>
+          <dt>parser</dt><dd class="mono">${esc(col.pipeline?.parser?.name || "auto")}</dd>
+          <dt>vision LLM</dt><dd class="mono">${
+            col.pipeline?.vision_llm
+              ? `${esc(col.pipeline.vision_llm.name)} · ${esc(col.pipeline.vision_llm.config?.model || "")}`
+              : "off"
+          }</dd>
           <dt>id</dt><dd class="mono tiny">${col.id}</dd>
         </dl>
-        ${isOwner ? `<div class="row section-gap"><button id="col-vis" class="btn btn-sm">Make ${col.visibility === "public" ? "private" : "public"}</button></div>` : ""}
+        <div class="row section-gap">
+          ${isOwner ? `<button id="col-pipe" class="btn btn-sm">Edit pipeline</button>` : ""}
+          ${isOwner ? `<button id="col-sync-toggle" class="btn btn-sm">${col.sync_enabled ? "Disable sync" : "Enable sync"}</button>` : ""}
+          ${isOwner ? `<button id="col-vis" class="btn btn-sm">Make ${col.visibility === "public" ? "private" : "public"}</button>` : ""}
+        </div>
       </div>
       ${isOwner ? `<div class="card section-gap"><div class="row spread"><h2>permissions</h2><button id="acl-add" class="btn btn-sm">Add grant</button></div><div id="acl-list"></div></div>` : ""}
     </div>
@@ -448,7 +536,7 @@ async function collectionDetail(main, id) {
   renderSources(col, sources, canEdit);
   if (isOwner) renderAcl(col);
 
-  if (canEdit)
+  if (canEdit) {
     $("#sync-now").onclick = async () => {
       try {
         await api(`/collections/${id}/syncs`, { method: "POST" });
@@ -457,7 +545,21 @@ async function collectionDetail(main, id) {
         toast(e.message, true);
       }
     };
+  }
   if (isOwner) {
+    $("#col-pipe").onclick = () => editPipelineModal(col);
+    $("#col-sync-toggle").onclick = async () => {
+      try {
+        await api(`/collections/${id}`, {
+          method: "PATCH",
+          body: { sync_enabled: !col.sync_enabled },
+        });
+        toast(`scheduled sync ${col.sync_enabled ? "disabled" : "enabled"}`);
+        route();
+      } catch (e) {
+        toast(e.message, true);
+      }
+    };
     $("#col-vis").onclick = async () => {
       const next = col.visibility === "public" ? "private" : "public";
       await api(`/collections/${id}`, { method: "PATCH", body: { visibility: next } });
@@ -475,6 +577,29 @@ async function collectionDetail(main, id) {
       };
     };
   }
+}
+
+async function editPipelineModal(col) {
+  const plugins = await api("/plugins");
+  modal(`<h3>Indexing pipeline</h3>
+  <p class="dim tiny">Applies to every source in this collection. Changes affect documents indexed from now on; re-upload or change a document to re-index it.</p>
+  ${pipelineFieldsHtml(plugins, col.pipeline || {})}
+  <div class="row spread section-gap"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+  <button id="pf-go" class="btn btn-accent">Save</button></div>`);
+  wirePipelineFields(plugins);
+  $("#pf-go").onclick = async () => {
+    try {
+      await api(`/collections/${col.id}`, {
+        method: "PATCH",
+        body: { pipeline: readPipelineFields(col.pipeline || {}) },
+      });
+      closeModal();
+      toast("pipeline updated");
+      route();
+    } catch (e) {
+      toast(e.message, true);
+    }
+  };
 }
 
 function renderSources(col, sources, canEdit) {
@@ -549,8 +674,8 @@ async function addSourceModal(colId) {
 async function uploadModal(colId, srcId) {
   const files = await api(`/collections/${colId}/sources/${srcId}/files`);
   modal(`<h3>Manual uploads</h3>
-  <label class="f"><span>add file (pdf · txt · md · csv · xlsx)</span>
-  <input id="up-file" type="file" accept=".pdf,.txt,.md,.markdown,.csv,.xlsx" multiple></label>
+  <label class="f"><span>add file (pdf · docx · pptx · txt · md · csv · xlsx)</span>
+  <input id="up-file" type="file" accept=".pdf,.docx,.pptx,.txt,.md,.markdown,.csv,.xlsx" multiple></label>
   <div id="up-list">${
     !files.length
       ? `<div class="empty">no files</div>`
@@ -789,6 +914,16 @@ async function docsPage(main) {
     `for (const h of hits) console.log(h.score.toFixed(3), h.title, h.uri);`,
   ].join("\n");
 
+  const mcpSnippet = [
+    `# Claude Code`,
+    `claude mcp add --transport http rag ${origin}/mcp \\`,
+    `  --header "Authorization: Bearer $RAG_API_KEY"`,
+    ``,
+    `# stdio-only clients: bridge with mcp-remote`,
+    `npx mcp-remote ${origin}/mcp \\`,
+    `  --header "Authorization:Bearer $RAG_API_KEY"`,
+  ].join("\n");
+
   const responseSample = [
     `{`,
     `  "hits": [`,
@@ -824,7 +959,7 @@ async function docsPage(main) {
   <div class="card section-gap"><h2>request fields — POST /search</h2>
   <table><thead><tr><th>field</th><th>type</th><th>notes</th></tr></thead><tbody>
     <tr><td class="mono">query</td><td class="dim">string</td><td>required, 1–4000 chars</td></tr>
-    <tr><td class="mono">collection_ids</td><td class="dim">uuid[]</td><td>optional — empty/omitted searches every collection in the key's scope; unknown or out-of-scope ids return 404</td></tr>
+    <tr><td class="mono">collection_ids</td><td class="dim">uuid[]</td><td>optional — empty/omitted searches every collection in the key's scope; unknown or out-of-scope ids return 404. Discover ids programmatically via <span class="mono">GET /search/collections</span></td></tr>
     <tr><td class="mono">top_k</td><td class="dim">int</td><td>1–50, default 8</td></tr>
     <tr><td class="mono">mode</td><td class="dim">string</td><td><span class="mono">hybrid</span> (vector + full-text, default) or <span class="mono">vector</span></td></tr>
   </tbody></table>
@@ -843,6 +978,11 @@ async function docsPage(main) {
   ${codeCard("python", "python", pySnippet)}
   ${codeCard("js", "javascript / node 18+", jsSnippet)}
   ${codeCard("resp", "response shape", responseSample)}
+
+  <div class="card section-gap"><h2>mcp</h2>
+  <p>The API is also an MCP server at <span class="mono">${esc(origin)}/mcp</span> (streamable HTTP) with two tools: <span class="mono">search_documents</span> and <span class="mono">list_searchable_collections</span> (collection discovery). Auth is the same bearer header — use a scoped API key. Results are permission-filtered exactly like REST.</p>
+  </div>
+  ${codeCard("mcp", "connect an mcp client", mcpSnippet)}
 
   <div class="card section-gap"><h2>errors</h2>
   <table><thead><tr><th>status</th><th>meaning</th></tr></thead><tbody>

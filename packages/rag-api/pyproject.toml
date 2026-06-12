@@ -6,6 +6,7 @@ requires-python = ">=3.12"
 dependencies = [
     "rag-core",
     "fastapi>=0.115",
+    "fastapi-mcp>=0.4",
     "uvicorn[standard]>=0.32",
     "pyjwt[crypto]>=2.9",
     "python-multipart>=0.0.18",

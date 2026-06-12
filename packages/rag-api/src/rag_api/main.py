@@ -3,9 +3,12 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 
 import structlog
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.staticfiles import StaticFiles
+from starlette.responses import Response
+from fastapi_mcp import AuthConfig, FastApiMCP
 
+from rag_api.auth import get_principal
 from rag_api.routers import (
     analytics,
     apikeys,
@@ -23,6 +26,20 @@ from rag_core.logging import configure_logging
 from rag_core.queue import get_app as get_queue_app
 
 log = structlog.get_logger(__name__)
+
+
+class NoCacheStaticFiles(StaticFiles):
+    """Static files that browsers must revalidate on every load.
+
+    Without Cache-Control browsers cache app.js/app.css heuristically, so UI
+    deploys appear stale until a hard refresh. no-cache still permits 304
+    responses via the ETag/Last-Modified that StaticFiles already sends.
+    """
+
+    def file_response(self, *args, **kwargs) -> Response:
+        response = super().file_response(*args, **kwargs)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
 
 
 @asynccontextmanager
@@ -57,7 +74,19 @@ def create_app() -> FastAPI:
     app.include_router(apikeys.router)
     app.include_router(analytics.router)
     app.include_router(ui.router)
-    app.mount("/ui", StaticFiles(directory=ui.STATIC_DIR, html=True), name="ui")
+    app.mount("/ui", NoCacheStaticFiles(directory=ui.STATIC_DIR, html=True), name="ui")
+
+    # MCP server at /mcp: exposes search + collection discovery as tools. The
+    # client's Authorization header is forwarded to the endpoint, so API keys
+    # and Entra tokens work exactly as they do over REST (keys stay search-only).
+    mcp = FastApiMCP(
+        app,
+        name="RAG Platform",
+        description="Semantic search over indexed document collections",
+        include_operations=["search_documents", "list_searchable_collections"],
+        auth_config=AuthConfig(dependencies=[Depends(get_principal)]),
+    )
+    mcp.mount_http()
     return app
 
 

@@ -176,3 +176,14 @@ class SearchRequest(BaseModel):
 class SearchResponse(BaseModel):
     hits: list[SearchHit]
     searched_collection_ids: list[uuid.UUID]
+
+
+class SearchableCollection(BaseModel):
+    """Slim collection view for search clients (API keys / MCP) — no management data."""
+
+    id: uuid.UUID
+    name: str
+    description: str
+    visibility: str
+
+    model_config = {"from_attributes": True}

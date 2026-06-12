@@ -10,6 +10,7 @@ parser          ``rag.parsers``               bytes/mime -> ParsedDocument
 transformer     ``rag.transformers``          ParsedDocument -> ParsedDocument
 chunker         ``rag.chunkers``              ParsedDocument -> non-overlapping chunks
 embedder        ``rag.embedders``             list[str] -> list[vector]
+vision          ``rag.vision``                list[image] -> list[description]
 ==============  ============================  ====================================
 
 A third-party package extends the platform by implementing one of these ABCs
@@ -100,6 +101,9 @@ class ParserPlugin(BasePlugin):
 
     #: Mime types this parser handles when auto-selected.
     media_types: ClassVar[tuple[str, ...]] = ()
+    #: When several parsers claim the same mime type, the highest wins
+    #: auto-selection (explicit pipeline config bypasses this entirely).
+    priority: ClassVar[int] = 0
 
     @abstractmethod
     def parse(self, raw: RawDocument) -> ParsedDocument: ...
@@ -146,6 +150,18 @@ class EmbedderPlugin(BasePlugin):
     async def embed(self, texts: list[str]) -> list[list[float]]: ...
 
 
+class VisionPlugin(BasePlugin):
+    """Describes images as text for indexing (figures, diagrams, charts).
+
+    Receives ``(bytes, mime_type)`` pairs and returns one description per
+    image, in order. An empty string means "nothing useful to say"; the
+    pipeline drops that block instead of indexing noise.
+    """
+
+    @abstractmethod
+    async def describe(self, images: list[tuple[bytes, str]]) -> list[str]: ...
+
+
 __all__ = [
     "BasePlugin",
     "Block",
@@ -155,4 +171,5 @@ __all__ = [
     "ParserPlugin",
     "SyncContext",
     "TransformerPlugin",
+    "VisionPlugin",
 ]

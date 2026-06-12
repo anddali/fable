@@ -76,6 +76,17 @@ curl -X POST localhost:8000/search -H 'content-type: application/json' \
   -d '{"query": "vacation policy", "mode": "hybrid"}'
 ```
 
+## MCP
+
+The API doubles as an MCP server at `/mcp` (streamable HTTP) with two tools: `search_documents`, and `list_searchable_collections` for discovering the collections (ids, names, descriptions) the caller may search — also available over REST as `GET /search/collections`. Auth is the same bearer header as REST — a scoped `ragk_…` API key is the easiest fit. Example client config (Claude Code shown; any MCP client works):
+
+```sh
+claude mcp add --transport http rag http://localhost:8000/mcp \
+  --header "Authorization: Bearer ragk_..."
+```
+
+Clients that only speak stdio can bridge with `npx mcp-remote http://localhost:8000/mcp --header "Authorization:Bearer ragk_..."`.
+
 ## Writing a plugin
 
 Any pip-installable package can extend the platform — no core changes. Implement one of the ABCs in `rag_core.interfaces` and register it under the matching entry-point group:

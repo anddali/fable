@@ -154,7 +154,7 @@ async def get_sso_principal(principal: CurrentPrincipal) -> Principal:
     if principal.auth_method != "sso":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="API keys can only be used for /search",
+            detail="API keys can only be used for search endpoints",
         )
     return principal
 

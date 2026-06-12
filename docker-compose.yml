@@ -30,9 +30,15 @@ services:
       RAG_AUTH__DEFAULT_ROLE: ${RAG_AUTH__DEFAULT_ROLE:-user}
       RAG_EMBEDDING__PLUGIN: ${RAG_EMBEDDING__PLUGIN:-fake}
       RAG_EMBEDDING__DIM: ${RAG_EMBEDDING__DIM:-1536}
+      # JSON plugin config; empty falls back to the in-code default.
+      RAG_EMBEDDING__CONFIG: ${RAG_EMBEDDING__CONFIG:-}
       RAG_BLOB_DIR: /data/blobs
       RAG_CACHE_DIR: /data/cache
+      # Docling layout/table models download here on first use and persist in
+      # the appdata volume (only the worker parses; harmless for the API).
+      HF_HOME: /data/cache/hf
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OLLAMA_API_KEY: ${OLLAMA_API_KEY:-}
     depends_on:
       db:
         condition: service_healthy

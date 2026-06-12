@@ -9,25 +9,19 @@ from sqlalchemy.orm import selectinload
 
 from rag_api.auth import CurrentPrincipal
 from rag_api.deps import DbSession, SettingsDep
-from rag_api.dto import SearchRequest, SearchResponse
+from rag_api.dto import SearchableCollection, SearchRequest, SearchResponse
 from rag_core.db.models import Collection, QueryLog
 from rag_core.rbac import effective_collection_role
 from rag_core.retrieval.service import search as run_search
+from rag_core.schemas import Principal
 
 router = APIRouter(tags=["search"])
 
 
-@router.post("/search")
-async def search(
-    body: SearchRequest,
-    session: DbSession,
-    settings: SettingsDep,
-    principal: CurrentPrincipal,
-) -> SearchResponse:
-    # Resolve the set of collections the caller may read; the retrieval query
-    # is hard-filtered to exactly this set. API keys are further restricted to
-    # the intersection with their scopes (so a key never outlives its owner's
-    # direct access, and never exceeds its declared scope).
+async def _readable_collections(session, principal: Principal) -> dict[uuid.UUID, Collection]:
+    """Collections the caller may read. API keys are further restricted to the
+    intersection with their scopes (so a key never outlives its owner's direct
+    access, and never exceeds its declared scope)."""
     result = await session.execute(select(Collection).options(selectinload(Collection.principals)))
     readable = {
         c.id: c
@@ -37,6 +31,42 @@ async def search(
     }
     if principal.key_scopes is not None:
         readable = {cid: c for cid, c in readable.items() if str(cid) in principal.key_scopes}
+    return readable
+
+
+@router.get("/search/collections", operation_id="list_searchable_collections")
+async def list_searchable_collections(
+    session: DbSession,
+    principal: CurrentPrincipal,
+) -> list[SearchableCollection]:
+    """List the document collections the caller can search.
+
+    Returns each collection's id, name and description. Pass ids to the
+    search tool's ``collection_ids`` to restrict a search to specific
+    collections.
+    """
+    readable = await _readable_collections(session, principal)
+    return [
+        SearchableCollection.model_validate(c)
+        for c in sorted(readable.values(), key=lambda c: c.name)
+    ]
+
+
+@router.post("/search", operation_id="search_documents")
+async def search(
+    body: SearchRequest,
+    session: DbSession,
+    settings: SettingsDep,
+    principal: CurrentPrincipal,
+) -> SearchResponse:
+    """Semantic search over the indexed document collections.
+
+    Returns the most relevant document chunks for the query, with source
+    metadata. Omit ``collection_ids`` to search every collection the caller
+    can read.
+    """
+    # The retrieval query is hard-filtered to exactly the readable set.
+    readable = await _readable_collections(session, principal)
 
     if body.collection_ids:
         denied = [cid for cid in body.collection_ids if cid not in readable]
