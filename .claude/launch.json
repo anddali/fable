@@ -7,7 +7,7 @@
       "runtimeArgs": [
         "-NoProfile",
         "-Command",
-        "$env:RAG_AUTH__MODE='disabled'; $env:RAG_EMBEDDING__CONFIG='{\"model\":\"nomic-embed-text\",\"base_url\":\"http://localhost:11434/v1\",\"api_key_env\":\"OLLAMA_API_KEY\"}'; $env:OLLAMA_API_KEY='ollama'; uv run rag-api --port 8741"
+        "$env:RAG_AUTH__MODE='disabled'; $env:RAG_EMBEDDING__CONFIG='{\"model\":\"nomic-embed-text\",\"base_url\":\"http://localhost:11434/v1\",\"api_key_env\":\"OLLAMA_API_KEY\"}'; $env:OLLAMA_API_KEY='ollama'; $env:RAG_CHAT__ENABLED='true'; $env:RAG_CHAT__BASE_URL='http://localhost:11434/v1'; $env:RAG_CHAT__MODEL='gemma3:4b'; $env:RAG_CHAT__API_KEY_ENV='OLLAMA_API_KEY'; uv run rag-api --port 8741"
       ],
       "port": 8741
     }

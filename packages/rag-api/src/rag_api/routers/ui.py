@@ -32,6 +32,9 @@ async def ui_config() -> dict:
         "api_scope": settings.auth.api_scope
         or (f"{settings.auth.audience}/.default" if settings.auth.audience else ""),
         "environment": settings.environment,
+        # Gates the console Chat page; off unless a chat model is configured.
+        "chat_enabled": settings.chat.enabled,
+        "chat_history_turns": settings.chat.history_turns,
     }
 
 

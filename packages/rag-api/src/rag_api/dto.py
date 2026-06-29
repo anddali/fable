@@ -218,3 +218,27 @@ class SearchableCollection(BaseModel):
     visibility: str
 
     model_config = {"from_attributes": True}
+
+
+# --- Chat -------------------------------------------------------------------
+
+
+class ChatTurn(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(min_length=1, max_length=8000)
+
+
+class ChatRequest(BaseModel):
+    query: str = Field(min_length=1, max_length=4000)
+    # Prior conversation turns for context; the server keeps only the most
+    # recent few (see RAG_CHAT__HISTORY_TURNS).
+    history: list[ChatTurn] = Field(default_factory=list)
+    # Empty list = every collection the caller can read.
+    collection_ids: list[uuid.UUID] = Field(default_factory=list)
+
+
+class ChatResponse(BaseModel):
+    answer: str
+    # The retrieved chunks used to ground the answer (the citations).
+    hits: list[SearchHit]
+    searched_collection_ids: list[uuid.UUID]

@@ -196,6 +196,22 @@ label.f.inline input[type=number] { width: 76px; }
 .hit-rank { display: inline-block; min-width: 18px; margin-right: 7px; color: var(--faint); font-size: 11px; }
 .hit .kv.tiny dt { font-size: 9.5px; }
 .hit .kv.tiny dd { font-size: 11px; }
+
+/* chat */
+.chat-card { display: flex; flex-direction: column; }
+.chat-log { display: flex; flex-direction: column; gap: 10px; min-height: 320px; max-height: 56vh; overflow-y: auto; padding: 4px 2px; }
+.bubble { max-width: 88%; padding: 9px 12px; border-radius: 11px; font-size: 13.5px; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word; }
+.bubble-user { align-self: flex-end; background: var(--accent-dim); border: 1px solid var(--accent); }
+.bubble-bot { align-self: flex-start; background: var(--panel-2); border: 1px solid var(--line); }
+.bubble-err { border-color: #6e3030; color: var(--red); }
+.bubble-pending { align-self: flex-start; background: var(--panel-2); border: 1px solid var(--line); opacity: 0.6; font-style: italic; }
+.cites { margin-top: 8px; border-top: 1px solid var(--line); padding-top: 6px; }
+.cites summary { cursor: pointer; }
+.cite { padding: 6px 0; border-bottom: 1px solid var(--line); }
+.cite:last-child { border-bottom: 0; }
+.composer { display: flex; gap: 8px; align-items: flex-end; }
+.composer textarea { min-height: 44px; }
+.composer .btn { white-space: nowrap; }
 .section-gap { margin-top: 14px; }
 
 /* figure crops attached to chunks / search hits */

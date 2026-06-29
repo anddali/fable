@@ -12,6 +12,7 @@ from rag_api.auth import get_principal
 from rag_api.routers import (
     analytics,
     apikeys,
+    chat,
     collections,
     documents,
     health,
@@ -72,6 +73,7 @@ def create_app() -> FastAPI:
     app.include_router(uploads.router)
     app.include_router(syncs.router)
     app.include_router(search.router)
+    app.include_router(chat.router)
     app.include_router(plugins.router)
     app.include_router(apikeys.router)
     app.include_router(analytics.router)

@@ -1,7 +1,7 @@
 "use strict";
 
 /* ------------------------------------------------------------------ state */
-const S = { cfg: null, msal: null, account: null, me: null, charts: [] };
+const S = { cfg: null, msal: null, account: null, me: null, charts: [], chat: [] };
 const $ = (sel, el = document) => el.querySelector(sel);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const esc = (s) =>
@@ -68,6 +68,7 @@ async function boot() {
     <div class="who-role">${S.me.is_admin ? "admin" : "user"}</div>`;
   $("#boot").hidden = true;
   $("#app").hidden = false;
+  if (!S.cfg.chat_enabled) $("#nav-chat")?.remove();
   window.addEventListener("hashchange", route);
   route();
 }
@@ -256,9 +257,14 @@ function route() {
   const render =
     page === "collections" && id
       ? () => collectionDetail(main, id)
-      : { dashboard, search: searchPage, collections: collectionsPage, keys: keysPage, docs: docsPage }[
-          page
-        ] || dashboard;
+      : {
+          dashboard,
+          search: searchPage,
+          chat: chatPage,
+          collections: collectionsPage,
+          keys: keysPage,
+          docs: docsPage,
+        }[page] || dashboard;
   Promise.resolve(render(main)).catch((e) => {
     main.innerHTML = `<div class="empty">error · ${esc(e.message)}</div>`;
   });
@@ -558,12 +564,142 @@ function searchHitHtml(h, i, colName) {
   </div>`;
 }
 
+/* -------------------------------------------------------------------- chat */
+async function chatPage(main) {
+  if (!S.cfg.chat_enabled) {
+    main.innerHTML = `
+    <div class="page-head"><div><div class="crumb">03 · converse</div><h1>Chat</h1></div></div>
+    <div class="card"><div class="empty">chat is not enabled on this server — set RAG_CHAT__* to configure a model</div></div>`;
+    return;
+  }
+  const cols = await api("/search/collections");
+
+  main.innerHTML = `
+  <div class="page-head">
+    <div><div class="crumb">03 · converse</div><h1>Chat</h1></div>
+    <span class="badge badge-green">grounded in ${cols.length} collection${cols.length === 1 ? "" : "s"}</span>
+  </div>
+  <div class="grid two-col">
+    <div class="card chat-card">
+      <div id="chat-log" class="chat-log"></div>
+      <div class="composer section-gap">
+        <textarea id="chat-q" rows="2" placeholder="ask about your indexed documents… (Enter to send · Shift+Enter for newline)"></textarea>
+        <button id="chat-send" class="btn btn-accent">Send</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="row spread"><h2>collections to search</h2>
+        <div class="row"><button id="chat-all" class="btn btn-sm btn-ghost">All</button>
+        <button id="chat-none" class="btn btn-sm btn-ghost">None</button></div></div>
+      <div id="chat-cols" class="check-grid">${
+        !cols.length
+          ? `<div class="empty">no collections you can search</div>`
+          : cols
+              .map(
+                (c) => `<label class="check"><input type="checkbox" value="${c.id}" checked>
+            <span>${esc(c.name)} ${visBadge(c.visibility)}</span></label>`
+              )
+              .join("")
+      }</div>
+      <p class="dim tiny section-gap">Answers cite the retrieved snippets. The model
+        remembers the last ${S.cfg.chat_history_turns || 3} turns of this conversation.</p>
+      <button id="chat-clear" class="btn btn-sm section-gap">Clear conversation</button>
+    </div>
+  </div>`;
+
+  renderChatLog();
+  hydrateFigures($("#chat-log"));
+
+  const checks = () => [...main.querySelectorAll("#chat-cols input")];
+  $("#chat-all").onclick = () => checks().forEach((c) => (c.checked = true));
+  $("#chat-none").onclick = () => checks().forEach((c) => (c.checked = false));
+  $("#chat-clear").onclick = () => {
+    S.chat = [];
+    renderChatLog();
+  };
+  $("#chat-send").onclick = sendChat;
+  $("#chat-q").addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendChat();
+    }
+  });
+  $("#chat-q").focus();
+}
+
+function renderChatLog() {
+  const log = $("#chat-log");
+  if (!log) return;
+  log.innerHTML = S.chat.length
+    ? S.chat.map(chatBubbleHtml).join("")
+    : `<div class="empty">ask a question to start — answers draw on your indexed collections</div>`;
+  log.scrollTop = log.scrollHeight;
+}
+
+function chatBubbleHtml(m) {
+  if (m.role === "user") return `<div class="bubble bubble-user">${esc(m.content)}</div>`;
+  const cites = m.hits && m.hits.length ? chatCitations(m.hits) : "";
+  return `<div class="bubble bubble-bot${m.error ? " bubble-err" : ""}">${esc(m.content)}${cites}</div>`;
+}
+
+function chatCitations(hits) {
+  return `<details class="cites"><summary class="dim tiny">${hits.length} source${hits.length === 1 ? "" : "s"}</summary>
+    ${hits
+      .map(
+        (h, i) => `<div class="cite">
+      <div><span class="mono tiny dim">[${i + 1}]</span> <strong>${esc(h.title || "untitled")}</strong>
+        <span class="dim tiny">· score ${h.score.toFixed(3)}</span></div>
+      ${h.uri ? `<div class="dim tiny truncate" title="${esc(h.uri)}">${esc(h.uri)}</div>` : ""}
+      ${figureImgs(h.metadata?.figures)}</div>`
+      )
+      .join("")}</details>`;
+}
+
+async function sendChat() {
+  const ta = $("#chat-q");
+  const text = ta.value.trim();
+  if (!text) return;
+  const picked = [...document.querySelectorAll("#chat-cols input:checked")].map((i) => i.value);
+  // Last few turns as memory; drop error replies so they don't poison context.
+  const history = S.chat
+    .filter((m) => !m.error)
+    .slice(-((S.cfg.chat_history_turns || 3) * 2))
+    .map((m) => ({ role: m.role, content: m.content }));
+
+  S.chat.push({ role: "user", content: text });
+  ta.value = "";
+  renderChatLog();
+  const log = $("#chat-log");
+  log.insertAdjacentHTML(
+    "beforeend",
+    `<div class="bubble bubble-bot bubble-pending">thinking…</div>`
+  );
+  log.scrollTop = log.scrollHeight;
+
+  const sendBtn = $("#chat-send");
+  sendBtn.disabled = true;
+  try {
+    const res = await api("/chat", {
+      method: "POST",
+      body: { query: text, history, collection_ids: picked },
+    });
+    S.chat.push({ role: "assistant", content: res.answer, hits: res.hits });
+  } catch (e) {
+    S.chat.push({ role: "assistant", content: `⚠ ${e.message}`, error: true });
+  } finally {
+    sendBtn.disabled = false;
+    renderChatLog();
+    hydrateFigures($("#chat-log"));
+    $("#chat-q")?.focus();
+  }
+}
+
 /* ------------------------------------------------------------ collections */
 async function collectionsPage(main) {
   const cols = await api("/collections");
   main.innerHTML = `
   <div class="page-head">
-    <div><div class="crumb">03 · corpus</div><h1>Collections</h1></div>
+    <div><div class="crumb">04 · corpus</div><h1>Collections</h1></div>
     <button id="new-col" class="btn btn-accent">New collection</button>
   </div>
   <div class="card">${
@@ -628,7 +764,7 @@ async function collectionDetail(main, id) {
 
   main.innerHTML = `
   <div class="page-head">
-    <div><div class="crumb"><a href="#/collections">03 · collections</a> / detail</div>
+    <div><div class="crumb"><a href="#/collections">04 · collections</a> / detail</div>
     <h1>${esc(col.name)} ${visBadge(col.visibility)} ${roleBadge(col.my_role)}</h1></div>
     <div class="row">${
       canEdit ? `<button id="sync-now" class="btn btn-accent">Sync now</button>` : ""
@@ -1105,7 +1241,7 @@ async function keysPage(main) {
   const [keys, cols] = await Promise.all([api("/api-keys"), api("/collections")]);
   main.innerHTML = `
   <div class="page-head">
-    <div><div class="crumb">04 · access</div><h1>API keys</h1></div>
+    <div><div class="crumb">05 · access</div><h1>API keys</h1></div>
   </div>
   <div class="grid two-col">
     <div class="card"><h2>your keys</h2>${keysTable(keys)}</div>
@@ -1293,7 +1429,7 @@ async function docsPage(main) {
 
   main.innerHTML = `
   <div class="page-head">
-    <div><div class="crumb">05 · reference</div><h1>Querying the API</h1></div>
+    <div><div class="crumb">06 · reference</div><h1>Querying the API</h1></div>
     <a class="btn btn-sm" href="/docs" target="_blank" rel="noopener">OpenAPI reference</a>
   </div>
   <div class="card">

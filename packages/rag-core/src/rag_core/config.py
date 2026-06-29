@@ -63,6 +63,30 @@ class EmbeddingSettings(BaseModel):
     )
 
 
+class ChatSettings(BaseModel):
+    """Answer-synthesis LLM for the console Chat page (``/chat``).
+
+    Any OpenAI-compatible ``/chat/completions`` server works — OpenAI, a local
+    Ollama (``http://host.docker.internal:11434/v1``), vLLM, Azure's v1 surface.
+    Disabled by default: set ``enabled=true`` plus a ``base_url``/``model`` (and
+    ``api_key_env`` when the server authenticates) to turn the feature on.
+    """
+
+    enabled: bool = False
+    base_url: str = "https://api.openai.com/v1"
+    model: str = "gpt-4o-mini"
+    # Name of the env var holding the API key; may be unset for local servers.
+    api_key_env: str = "OPENAI_API_KEY"
+    temperature: float = 0.2
+    max_tokens: int = 800
+    timeout_seconds: float = 120.0
+    # Retrieval breadth and fusion mode for the grounding context of each turn.
+    top_k: int = 6
+    mode: Literal["vector", "hybrid"] = "hybrid"
+    # Prior exchanges (user+assistant) kept as conversation memory per request.
+    history_turns: int = 3
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="RAG_", env_nested_delimiter="__", env_file=".env", extra="ignore"
@@ -84,6 +108,7 @@ class Settings(BaseSettings):
 
     auth: AuthSettings = Field(default_factory=AuthSettings)
     embedding: EmbeddingSettings = Field(default_factory=EmbeddingSettings)
+    chat: ChatSettings = Field(default_factory=ChatSettings)
 
     # Hard ceilings applied regardless of per-collection pipeline config.
     max_upload_bytes: int = 50 * 1024 * 1024

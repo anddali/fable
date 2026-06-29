@@ -32,6 +32,11 @@ services:
       RAG_EMBEDDING__DIM: ${RAG_EMBEDDING__DIM:-1536}
       # JSON plugin config; empty falls back to the in-code default.
       RAG_EMBEDDING__CONFIG: ${RAG_EMBEDDING__CONFIG:-}
+      # Console chat answer-synthesis LLM (OpenAI-compatible). Off unless enabled.
+      RAG_CHAT__ENABLED: ${RAG_CHAT__ENABLED:-false}
+      RAG_CHAT__BASE_URL: ${RAG_CHAT__BASE_URL:-https://api.openai.com/v1}
+      RAG_CHAT__MODEL: ${RAG_CHAT__MODEL:-gpt-4o-mini}
+      RAG_CHAT__API_KEY_ENV: ${RAG_CHAT__API_KEY_ENV:-OPENAI_API_KEY}
       RAG_BLOB_DIR: /data/blobs
       RAG_CACHE_DIR: /data/cache
       # Docling layout/table models download here on first use and persist in
