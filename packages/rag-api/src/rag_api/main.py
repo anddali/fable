@@ -13,6 +13,7 @@ from rag_api.routers import (
     analytics,
     apikeys,
     collections,
+    documents,
     health,
     plugins,
     search,
@@ -67,6 +68,7 @@ def create_app() -> FastAPI:
     app.include_router(health.router)
     app.include_router(collections.router)
     app.include_router(sources.router)
+    app.include_router(documents.router)
     app.include_router(uploads.router)
     app.include_router(syncs.router)
     app.include_router(search.router)

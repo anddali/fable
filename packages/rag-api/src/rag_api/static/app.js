@@ -3,6 +3,7 @@
 /* ------------------------------------------------------------------ state */
 const S = { cfg: null, msal: null, account: null, me: null, charts: [] };
 const $ = (sel, el = document) => el.querySelector(sel);
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const esc = (s) =>
   String(s ?? "").replace(/[&<>"']/g, (c) =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]
@@ -115,6 +116,44 @@ function chart(canvas, config) {
   return c;
 }
 
+/* ---------------------------------------------------------------- figures */
+// <img src> can't carry the bearer token, so figures are fetched manually
+// and attached as object URLs. Cache per session to avoid refetching.
+const _figureUrls = {};
+
+const figureImgs = (figures) =>
+  (figures || [])
+    .map(
+      (f) =>
+        `<img class="figure-thumb" data-fig="${esc(f.key)}" alt="figure${f.page ? ` p${f.page}` : ""}" title="figure${f.page ? ` · page ${f.page}` : ""} — click to enlarge">`
+    )
+    .join("");
+
+async function hydrateFigures(root) {
+  for (const img of root.querySelectorAll("img.figure-thumb:not([src])")) {
+    const key = img.dataset.fig;
+    try {
+      if (!_figureUrls[key]) {
+        const token = await getToken();
+        const res = await fetch(`/search/figures?key=${encodeURIComponent(key)}`, {
+          headers: token ? { authorization: `Bearer ${token}` } : {},
+        });
+        if (!res.ok) throw new Error(res.statusText);
+        _figureUrls[key] = URL.createObjectURL(await res.blob());
+      }
+      img.src = _figureUrls[key];
+      img.onclick = (e) => {
+        e.stopPropagation();
+        modal(`<img class="figure-full" src="${_figureUrls[key]}" alt="figure">
+        <div class="row spread section-gap"><span class="mono tiny dim">${esc(key)}</span>
+        <button class="btn btn-ghost btn-sm" onclick="closeModal()">Close</button></div>`);
+      };
+    } catch {
+      img.remove(); // missing blob (e.g. pre-feature index) — degrade silently
+    }
+  }
+}
+
 const visBadge = (v) =>
   v === "public"
     ? `<span class="badge badge-blue">public</span>`
@@ -217,8 +256,9 @@ function route() {
   const render =
     page === "collections" && id
       ? () => collectionDetail(main, id)
-      : { dashboard, collections: collectionsPage, keys: keysPage, docs: docsPage }[page] ||
-        dashboard;
+      : { dashboard, search: searchPage, collections: collectionsPage, keys: keysPage, docs: docsPage }[
+          page
+        ] || dashboard;
   Promise.resolve(render(main)).catch((e) => {
     main.innerHTML = `<div class="empty">error · ${esc(e.message)}</div>`;
   });
@@ -261,10 +301,10 @@ async function dashboard(main) {
   <div class="grid two-col section-gap">
     <div class="card"><h2>recent queries</h2>${recentQueriesTable(q.recent)}</div>
     <div class="card"><h2>top queries</h2>${topQueriesTable(q.top_queries)}
-      <h2 class="section-gap">try a query</h2>
-      <div class="row"><input id="try-q" type="search" placeholder="search the index…">
-      <button id="try-btn" class="btn btn-accent btn-sm">Run</button></div>
-      <div id="try-out"></div>
+      <div class="row spread section-gap">
+        <span class="dim tiny">Run ad-hoc searches with collection filters &amp; full metadata.</span>
+        <a class="btn btn-accent btn-sm" href="#/search">Open search →</a>
+      </div>
     </div>
   </div>
   <div class="card section-gap"><h2>collections</h2>${perCollectionTable(db.per_collection)}</div>
@@ -272,9 +312,6 @@ async function dashboard(main) {
 
   drawQueryChart(q.per_day);
   drawDocChart(d);
-
-  $("#try-btn").onclick = runTryQuery;
-  $("#try-q").addEventListener("keydown", (e) => e.key === "Enter" && runTryQuery());
 }
 
 function drawQueryChart(perDay) {
@@ -400,28 +437,125 @@ const syncRunsTable = (rows) =>
     })
     .join("")}</tbody></table>`;
 
-async function runTryQuery() {
-  const qEl = $("#try-q");
-  const out = $("#try-out");
-  if (!qEl.value.trim()) return;
+/* ------------------------------------------------------------------ search */
+async function searchPage(main) {
+  // The searchable set mirrors exactly what /search will query: collections
+  // the caller can read (direct grants + public). Use it for both the filter
+  // checkboxes and to resolve collection ids to names in the results.
+  const cols = await api("/search/collections");
+  const colName = Object.fromEntries(cols.map((c) => [c.id, c.name]));
+
+  main.innerHTML = `
+  <div class="page-head">
+    <div><div class="crumb">02 · query</div><h1>Search</h1></div>
+    <span class="badge badge-green">${cols.length} collection${cols.length === 1 ? "" : "s"} searchable</span>
+  </div>
+  <div class="grid two-col">
+    <div>
+      <div class="card">
+        <label class="f"><span>query</span>
+          <textarea id="s-q" rows="3" placeholder="ask the index in natural language…"></textarea></label>
+        <div class="row section-gap">
+          <label class="f inline"><span>mode</span>
+            <select id="s-mode">
+              <option value="hybrid">hybrid — vector + keyword</option>
+              <option value="vector">vector — semantic only</option>
+            </select></label>
+          <label class="f inline"><span>top k</span>
+            <input id="s-topk" type="number" min="1" max="50" value="8"></label>
+          <button id="s-go" class="btn btn-accent">Search</button>
+        </div>
+        <div id="s-status" class="dim tiny section-gap"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="row spread"><h2>collections to search</h2>
+        <div class="row"><button id="s-all" class="btn btn-sm btn-ghost">All</button>
+        <button id="s-none" class="btn btn-sm btn-ghost">None</button></div></div>
+      <div id="s-cols" class="check-grid">${
+        !cols.length
+          ? `<div class="empty">no collections you can search</div>`
+          : cols
+              .map(
+                (c) => `<label class="check"><input type="checkbox" value="${c.id}" checked>
+            <span>${esc(c.name)} ${visBadge(c.visibility)}</span></label>`
+              )
+              .join("")
+      }</div>
+      <p class="dim tiny section-gap">No boxes ticked searches every collection above.</p>
+    </div>
+  </div>
+  <div id="s-out" class="section-gap"></div>`;
+
+  const checks = () => [...main.querySelectorAll("#s-cols input")];
+  $("#s-all").onclick = () => checks().forEach((c) => (c.checked = true));
+  $("#s-none").onclick = () => checks().forEach((c) => (c.checked = false));
+  $("#s-go").onclick = () => runSearch(colName);
+  // Ctrl/Cmd+Enter from the textarea fires the search.
+  $("#s-q").addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) runSearch(colName);
+  });
+  $("#s-q").focus();
+}
+
+async function runSearch(colName) {
+  const query = $("#s-q").value.trim();
+  const out = $("#s-out");
+  const status = $("#s-status");
+  if (!query) {
+    status.textContent = "enter a query";
+    return;
+  }
+  // Ticked collections; none ticked = all readable (matches API semantics).
+  const picked = [...document.querySelectorAll("#s-cols input:checked")].map((i) => i.value);
+  const mode = $("#s-mode").value;
+  const top_k = Math.max(1, Math.min(50, Number($("#s-topk").value) || 8));
+
+  status.textContent = "searching…";
   out.innerHTML = `<div class="empty">searching…</div>`;
+  const started = performance.now();
   try {
     const res = await api("/search", {
       method: "POST",
-      body: { query: qEl.value.trim(), top_k: 3, mode: "hybrid" },
+      body: { query, top_k, mode, collection_ids: picked },
     });
+    const ms = Math.round(performance.now() - started);
+    const scope = res.searched_collection_ids
+      .map((id) => colName[id] || id)
+      .join(", ");
+    status.innerHTML = `${res.hits.length} hit${res.hits.length === 1 ? "" : "s"} · ${ms} ms · ${mode} · searched ${esc(scope || "—")}`;
     out.innerHTML = res.hits.length
-      ? res.hits
-          .map(
-            (h) => `<div class="hit">
-        <div class="hit-meta">${esc(h.title)} · score ${h.score.toFixed(4)}</div>
-        <div class="hit-text tiny">${esc(h.text.slice(0, 320))}${h.text.length > 320 ? "…" : ""}</div></div>`
-          )
-          .join("")
-      : `<div class="empty">no hits</div>`;
+      ? `<div class="card">${res.hits.map((h, i) => searchHitHtml(h, i, colName)).join("")}</div>`
+      : `<div class="card"><div class="empty">no hits — try broadening the query or selecting more collections</div></div>`;
+    hydrateFigures(out);
   } catch (e) {
-    out.innerHTML = `<div class="empty">error · ${esc(e.message)}</div>`;
+    status.textContent = "";
+    out.innerHTML = `<div class="card"><div class="empty">error · ${esc(e.message)}</div></div>`;
   }
+}
+
+function searchHitHtml(h, i, colName) {
+  const figs = figureImgs(h.metadata?.figures);
+  const badges = chunkMetaBadges(h.metadata);
+  return `<div class="hit">
+    <div class="row spread">
+      <div><span class="hit-rank mono">${i + 1}</span><strong>${esc(h.title || "untitled")}</strong></div>
+      <span class="badge badge-green" title="relevance score">score ${h.score.toFixed(4)}</span>
+    </div>
+    ${h.uri ? `<div class="dim tiny truncate" title="${esc(h.uri)}">${esc(h.uri)}</div>` : ""}
+    <dl class="kv tiny section-gap">
+      <dt>collection</dt><dd>${esc(colName[h.collection_id] || h.collection_id)}</dd>
+      <dt>chunk #</dt><dd class="mono">${h.ordinal}</dd>
+      <dt>chunk id</dt><dd class="mono tiny">${esc(h.chunk_id)}</dd>
+      <dt>document id</dt><dd class="mono tiny">${esc(h.document_id)}</dd>
+      <dt>collection id</dt><dd class="mono tiny">${esc(h.collection_id)}</dd>
+    </dl>
+    ${badges ? `<div class="section-gap">${badges}</div>` : ""}
+    <div class="hit-text tiny mono section-gap">${esc(h.text)}</div>
+    ${figs}
+    <details class="section-gap"><summary class="dim tiny">raw hit (json)</summary>
+      <pre class="mono tiny">${esc(JSON.stringify(h, null, 2))}</pre></details>
+  </div>`;
 }
 
 /* ------------------------------------------------------------ collections */
@@ -429,7 +563,7 @@ async function collectionsPage(main) {
   const cols = await api("/collections");
   main.innerHTML = `
   <div class="page-head">
-    <div><div class="crumb">02 · corpus</div><h1>Collections</h1></div>
+    <div><div class="crumb">03 · corpus</div><h1>Collections</h1></div>
     <button id="new-col" class="btn btn-accent">New collection</button>
   </div>
   <div class="card">${
@@ -494,7 +628,7 @@ async function collectionDetail(main, id) {
 
   main.innerHTML = `
   <div class="page-head">
-    <div><div class="crumb"><a href="#/collections">02 · collections</a> / detail</div>
+    <div><div class="crumb"><a href="#/collections">03 · collections</a> / detail</div>
     <h1>${esc(col.name)} ${visBadge(col.visibility)} ${roleBadge(col.my_role)}</h1></div>
     <div class="row">${
       canEdit ? `<button id="sync-now" class="btn btn-accent">Sync now</button>` : ""
@@ -505,9 +639,9 @@ async function collectionDetail(main, id) {
       <div class="card"><div class="row spread"><h2>sources</h2>${
         canEdit ? `<button id="add-src" class="btn btn-sm">Add source</button>` : ""
       }</div><div id="src-list"></div></div>
-      <div class="card section-gap"><h2>recent sync runs</h2>${syncRunsTable(
+      <div class="card section-gap"><h2>recent sync runs</h2><div id="sync-runs">${syncRunsTable(
         runs.map((r) => ({ ...r, collection: col.name }))
-      )}</div>
+      )}</div></div>
     </div>
     <div>
       <div class="card"><h2>settings</h2>
@@ -531,16 +665,105 @@ async function collectionDetail(main, id) {
       </div>
       ${isOwner ? `<div class="card section-gap"><div class="row spread"><h2>permissions</h2><button id="acl-add" class="btn btn-sm">Add grant</button></div><div id="acl-list"></div></div>` : ""}
     </div>
+  </div>
+  <div class="card section-gap">
+    <div class="row spread"><h2>documents</h2>
+      <div class="row">
+        <select id="doc-status">
+          <option value="">all statuses</option>
+          <option value="indexed">indexed</option>
+          <option value="pending">pending</option>
+          <option value="failed">failed</option>
+          <option value="deleted">deleted</option>
+        </select>
+        <input id="doc-q" type="search" placeholder="filter by title or uri…">
+        <button id="doc-refresh" class="btn btn-sm btn-ghost" title="Reload documents">↻</button>
+      </div>
+    </div>
+    <div id="doc-list"></div>
   </div>`;
 
+  const docs = renderDocuments(col, sources);
   renderSources(col, sources, canEdit);
   if (isOwner) renderAcl(col);
+
+  // Re-render the sync-runs panel in place; returns the runs for liveness checks.
+  const reloadRuns = async () => {
+    try {
+      const r = await api(`/collections/${id}/syncs?limit=8`);
+      const box = $("#sync-runs");
+      if (box) box.innerHTML = syncRunsTable(r.map((x) => ({ ...x, collection: col.name })));
+      return r;
+    } catch {
+      return [];
+    }
+  };
+
+  // Live updates: poll docs + runs while a sync is running or docs are still
+  // pending, so indexing status fills in without a manual reload. Self-stops
+  // when everything settles, on navigation away, or after a 2-minute cap.
+  let polling = false;
+  const myHash = location.hash;
+  const setSyncBusy = (busy) => {
+    const b = $("#sync-now");
+    if (b) {
+      b.disabled = busy;
+      b.textContent = busy ? "Syncing…" : "Sync now";
+    }
+  };
+  const startPolling = async () => {
+    if (polling) return;
+    polling = true;
+    setSyncBusy(true);
+    const deadline = Date.now() + 120000;
+    let delay = 1500;
+    try {
+      while (location.hash === myHash && document.getElementById("doc-list")) {
+        await sleep(delay);
+        if (location.hash !== myHash || !document.getElementById("doc-list")) return;
+        let runs = [];
+        let pending = 0;
+        try {
+          const [r, p] = await Promise.all([
+            reloadRuns(),
+            api(`/collections/${id}/documents?status=pending&limit=1`),
+          ]);
+          runs = r;
+          pending = p.total;
+        } catch {
+          /* transient; keep polling */
+        }
+        await docs.reload();
+        const running = runs.some((r) => r.status === "running");
+        if ((!running && pending === 0) || Date.now() > deadline) return;
+        delay = Math.min(delay * 1.3, 5000);
+      }
+    } finally {
+      polling = false;
+      setSyncBusy(false);
+    }
+  };
+
+  $("#doc-refresh").onclick = () => {
+    docs.reload();
+    reloadRuns();
+  };
+
+  // Landed on a collection that's already syncing/indexing -> go live.
+  if (runs.some((r) => r.status === "running")) {
+    startPolling();
+  } else {
+    api(`/collections/${id}/documents?status=pending&limit=1`)
+      .then((p) => p.total > 0 && startPolling())
+      .catch(() => {});
+  }
 
   if (canEdit) {
     $("#sync-now").onclick = async () => {
       try {
         await api(`/collections/${id}/syncs`, { method: "POST" });
         toast("sync queued");
+        startPolling();
       } catch (e) {
         toast(e.message, true);
       }
@@ -577,6 +800,128 @@ async function collectionDetail(main, id) {
       };
     };
   }
+}
+
+/* ---------------------------------------------------------- index inspector */
+const DOC_PAGE = 50;
+
+function renderDocuments(col, sources) {
+  const srcName = Object.fromEntries(sources.map((s) => [s.id, s.name]));
+  const state = { status: "", q: "", offset: 0 };
+  const el = $("#doc-list");
+
+  const load = async (quiet = false) => {
+    // quiet = in-place refresh (live polling): skip the loading flicker.
+    if (!quiet) el.innerHTML = `<div class="empty">loading…</div>`;
+    const params = new URLSearchParams({ limit: DOC_PAGE, offset: state.offset });
+    if (state.status) params.set("status", state.status);
+    if (state.q) params.set("q", state.q);
+    let data;
+    try {
+      data = await api(`/collections/${col.id}/documents?${params}`);
+    } catch (e) {
+      el.innerHTML = `<div class="empty">error · ${esc(e.message)}</div>`;
+      return;
+    }
+    if (!data.items.length) {
+      el.innerHTML = `<div class="empty">no documents${state.q || state.status ? " match" : " indexed yet — add a source and sync"}</div>`;
+      return;
+    }
+    const pages = Math.ceil(data.total / DOC_PAGE);
+    const page = state.offset / DOC_PAGE + 1;
+    el.innerHTML = `
+    <table><thead><tr><th>title</th><th>source</th><th>status</th>
+      <th class="num">chunks</th><th class="num">size</th><th>indexed</th></tr></thead>
+    <tbody>${data.items
+      .map(
+        (d) => `<tr class="rowlink" data-doc="${d.id}">
+        <td class="truncate" title="${esc(d.uri)}"><strong>${esc(d.title || d.external_id)}</strong></td>
+        <td class="dim tiny">${esc(srcName[d.source_id] || "—")}</td>
+        <td>${statusBadge(d.status)}</td>
+        <td class="num">${d.chunk_count}</td>
+        <td class="num dim tiny">${fmtBytes(d.size_bytes)}</td>
+        <td class="dim tiny nowrap">${fmtDate(d.indexed_at)}</td></tr>`
+      )
+      .join("")}</tbody></table>
+    <div class="row spread section-gap">
+      <span class="dim tiny">${data.total} document${data.total === 1 ? "" : "s"}${pages > 1 ? ` · page ${page}/${pages}` : ""}</span>
+      <div class="row">
+        ${page > 1 ? `<button id="doc-prev" class="btn btn-sm btn-ghost">‹ Prev</button>` : ""}
+        ${page < pages ? `<button id="doc-next" class="btn btn-sm btn-ghost">Next ›</button>` : ""}
+      </div>
+    </div>`;
+    el.querySelectorAll("[data-doc]").forEach((row) => {
+      row.onclick = () => chunkInspectorModal(col, row.dataset.doc, srcName);
+    });
+    const prev = $("#doc-prev"), next = $("#doc-next");
+    if (prev) prev.onclick = () => ((state.offset -= DOC_PAGE), load());
+    if (next) next.onclick = () => ((state.offset += DOC_PAGE), load());
+  };
+
+  $("#doc-status").onchange = () => ((state.status = $("#doc-status").value), (state.offset = 0), load());
+  let debounce;
+  $("#doc-q").oninput = () => {
+    clearTimeout(debounce);
+    debounce = setTimeout(() => ((state.q = $("#doc-q").value.trim()), (state.offset = 0), load()), 300);
+  };
+  load();
+  return { reload: () => load(true) };
+}
+
+const chunkMetaBadges = (m) =>
+  Object.entries(m || {})
+    .filter(([k]) => k !== "figures") // rendered as thumbnails, not a badge
+    .map(([k, v]) => `<span class="badge" title="${esc(k)}">${esc(k === "heading_path" ? v : `${k}: ${JSON.stringify(v)}`)}</span>`)
+    .join(" ");
+
+async function chunkInspectorModal(col, docId, srcName) {
+  const CHUNK_PAGE = 20;
+  const doc = await api(`/collections/${col.id}/documents/${docId}`);
+  modal(`<h3 class="truncate" title="${esc(doc.uri)}">${esc(doc.title || doc.external_id)}</h3>
+  <div class="row">${statusBadge(doc.status)}
+    <span class="badge">${esc(srcName[doc.source_id] || "source")}</span>
+    <span class="badge">${esc(doc.mime_type)}</span>
+    <span class="dim tiny">${doc.chunk_count} chunks · ${fmtBytes(doc.size_bytes)} · indexed ${fmtDate(doc.indexed_at)}</span></div>
+  ${doc.error ? `<div class="hit"><span class="bad">error</span> <span class="mono tiny">${esc(doc.error)}</span></div>` : ""}
+  ${
+    Object.keys(doc.doc_metadata || {}).length
+      ? `<details class="section-gap"><summary class="dim tiny">document metadata</summary>
+       <pre class="mono tiny">${esc(JSON.stringify(doc.doc_metadata, null, 2))}</pre></details>`
+      : ""
+  }
+  <div id="chunk-list" class="section-gap"></div>
+  <div class="row spread section-gap">
+    <span id="chunk-count" class="dim tiny"></span>
+    <div class="row"><button id="chunk-more" class="btn btn-sm" hidden>Load more</button>
+    <button class="btn btn-ghost btn-sm" onclick="closeModal()">Close</button></div>
+  </div>`);
+
+  let offset = 0;
+  const listEl = $("#chunk-list");
+  const loadChunks = async () => {
+    const data = await api(
+      `/collections/${col.id}/documents/${docId}/chunks?limit=${CHUNK_PAGE}&offset=${offset}`
+    );
+    listEl.insertAdjacentHTML(
+      "beforeend",
+      data.items
+        .map(
+          (c) => `<div class="hit">
+        <div class="hit-meta">#${c.ordinal} · ${c.token_count} tokens
+          ${c.has_embedding ? "" : ` · <span class="bad">no embedding</span>`}
+          ${chunkMetaBadges(c.chunk_metadata)}</div>
+        <div class="hit-text tiny mono" style="white-space:pre-wrap">${esc(c.text)}</div>
+        ${figureImgs(c.chunk_metadata?.figures)}</div>`
+        )
+        .join("") || `<div class="empty">no chunks — document not indexed</div>`
+    );
+    hydrateFigures(listEl);
+    offset += data.items.length;
+    $("#chunk-count").textContent = `${offset} of ${data.total} chunks`;
+    $("#chunk-more").hidden = offset >= data.total;
+  };
+  $("#chunk-more").onclick = loadChunks;
+  await loadChunks();
 }
 
 async function editPipelineModal(col) {
@@ -760,7 +1105,7 @@ async function keysPage(main) {
   const [keys, cols] = await Promise.all([api("/api-keys"), api("/collections")]);
   main.innerHTML = `
   <div class="page-head">
-    <div><div class="crumb">03 · access</div><h1>API keys</h1></div>
+    <div><div class="crumb">04 · access</div><h1>API keys</h1></div>
   </div>
   <div class="grid two-col">
     <div class="card"><h2>your keys</h2>${keysTable(keys)}</div>
@@ -936,7 +1281,10 @@ async function docsPage(main) {
     `      "uri": "upload://…/handbook.md",`,
     `      "ordinal": 0,`,
     `      "text": "[Employee Handbook > Vacation policy]\\nFull-time employees accrue …",`,
-    `      "metadata": { "heading_path": "Employee Handbook > Vacation policy" }`,
+    `      "metadata": {`,
+    `        "heading_path": "Employee Handbook > Vacation policy",`,
+    `        "figures": [ { "key": "3ae2fdee-…/0ed45dc3-…/figures/49109583-0.png", "page": 2 } ]`,
+    `      }`,
     `    }`,
     `  ],`,
     `  "searched_collection_ids": ["3ae2fdee-…"]`,
@@ -945,7 +1293,7 @@ async function docsPage(main) {
 
   main.innerHTML = `
   <div class="page-head">
-    <div><div class="crumb">04 · reference</div><h1>Querying the API</h1></div>
+    <div><div class="crumb">05 · reference</div><h1>Querying the API</h1></div>
     <a class="btn btn-sm" href="/docs" target="_blank" rel="noopener">OpenAPI reference</a>
   </div>
   <div class="card">
@@ -953,6 +1301,7 @@ async function docsPage(main) {
     <p>1 · Mint a key on the <a href="#/keys">API keys</a> page, scoped to the collections it may search. The secret (<span class="mono">ragk_…</span>) is shown once — store it as a secret (env var, vault), never in code.</p>
     <p>2 · Call <span class="mono">POST ${esc(origin)}/search</span> with the key as a bearer token. Keys can <em>only</em> search: every management endpoint rejects them.</p>
     <p>3 · Feed the returned chunks to your LLM as context. Each hit carries its source <span class="mono">uri</span> for citations.</p>
+    <p>4 · Hits derived from document figures (diagrams, charts) include <span class="mono">metadata.figures[].key</span> — fetch the actual image with <span class="mono">GET /search/figures?key=…</span> using the same bearer token (returns <span class="mono">image/png</span>, access-checked like /search).</p>
     <div class="doc-note">Results are permission-filtered server-side: a key only ever sees its scoped collections, and only while its owner still has access to them. Revoke keys anytime from the API keys page.</div>
   </div>
 

@@ -1,14 +1,16 @@
 from __future__ import annotations
 
+import re
 import time
 import uuid
 
 from fastapi import APIRouter, HTTPException, status
+from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from rag_api.auth import CurrentPrincipal
-from rag_api.deps import DbSession, SettingsDep
+from rag_api.deps import BlobStoreDep, DbSession, SettingsDep
 from rag_api.dto import SearchableCollection, SearchRequest, SearchResponse
 from rag_core.db.models import Collection, QueryLog
 from rag_core.rbac import effective_collection_role
@@ -16,6 +18,24 @@ from rag_core.retrieval.service import search as run_search
 from rag_core.schemas import Principal
 
 router = APIRouter(tags=["search"])
+
+# {collection_id}/{document_id}/figures/{hash16}-{n}.png — exactly the keys
+# written by the indexer's vision step. Anything else (e.g. raw document
+# payload keys) is rejected so this endpoint can only ever serve figures.
+_FIGURE_KEY = re.compile(
+    r"^(?P<collection_id>[0-9a-f-]{36})/[0-9a-f-]{36}/figures/[0-9a-f]{1,16}-\d+\.png$"
+)
+
+
+def parse_figure_key(key: str) -> uuid.UUID | None:
+    """Collection id from a well-formed figure blob key, else None."""
+    match = _FIGURE_KEY.match(key)
+    if not match:
+        return None
+    try:
+        return uuid.UUID(match.group("collection_id"))
+    except ValueError:
+        return None
 
 
 async def _readable_collections(session, principal: Principal) -> dict[uuid.UUID, Collection]:
@@ -63,7 +83,9 @@ async def search(
 
     Returns the most relevant document chunks for the query, with source
     metadata. Omit ``collection_ids`` to search every collection the caller
-    can read.
+    can read. Hits whose text came from document figures (diagrams, charts)
+    carry ``metadata.figures[].key``; fetch the actual image via
+    ``GET /search/figures?key=<key>`` with the same Authorization header.
     """
     # The retrieval query is hard-filtered to exactly the readable set.
     readable = await _readable_collections(session, principal)
@@ -105,3 +127,33 @@ async def search(
     await session.commit()
 
     return SearchResponse(hits=hits, searched_collection_ids=target_ids)
+
+
+@router.get("/search/figures", operation_id="get_search_figure")
+async def get_figure(
+    key: str,
+    session: DbSession,
+    blob_store: BlobStoreDep,
+    principal: CurrentPrincipal,
+) -> Response:
+    """Fetch a figure image referenced by a search hit's ``metadata.figures``.
+
+    Access mirrors /search exactly: the figure's collection must be readable
+    by the caller (and inside an API key's scopes).
+    """
+    collection_id = parse_figure_key(key)
+    if collection_id is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Unknown figure")
+    readable = await _readable_collections(session, principal)
+    if collection_id not in readable:
+        # Same shape as "doesn't exist" — don't leak collection existence.
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Unknown figure")
+    try:
+        data = blob_store.get(key)
+    except FileNotFoundError:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Unknown figure") from None
+    return Response(
+        content=data,
+        media_type="image/png",
+        headers={"cache-control": "private, max-age=3600"},
+    )

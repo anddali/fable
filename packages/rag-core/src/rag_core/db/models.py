@@ -53,7 +53,9 @@ class Collection(UUIDPKMixin, TimestampMixin, Base):
     next_sync_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_by: Mapped[str] = mapped_column(String(100), default="", nullable=False)
 
-    sources: Mapped[list[Source]] = relationship(back_populates="collection")
+    sources: Mapped[list[Source]] = relationship(
+        back_populates="collection", cascade="all, delete-orphan", passive_deletes=True
+    )
     principals: Mapped[list[CollectionPrincipal]] = relationship(
         back_populates="collection", cascade="all, delete-orphan"
     )
@@ -94,7 +96,9 @@ class Source(UUIDPKMixin, TimestampMixin, Base):
     last_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     collection: Mapped[Collection] = relationship(back_populates="sources")
-    documents: Mapped[list[Document]] = relationship(back_populates="source")
+    documents: Mapped[list[Document]] = relationship(
+        back_populates="source", cascade="all, delete-orphan", passive_deletes=True
+    )
 
 
 class UploadItem(UUIDPKMixin, TimestampMixin, Base):

@@ -53,7 +53,17 @@ class LocalBlobStore(BlobStore):
         return self._path(key).read_bytes()
 
     def delete(self, key: str) -> None:
-        self._path(key).unlink(missing_ok=True)
+        path = self._path(key)
+        path.unlink(missing_ok=True)
+        # Prune now-empty parent dirs so deleted documents/collections don't
+        # leave a skeleton of empty folders behind. Never touch the store root.
+        parent = path.parent
+        while parent != self.root and parent.is_relative_to(self.root):
+            try:
+                parent.rmdir()  # raises if the dir still holds anything
+            except OSError:
+                break
+            parent = parent.parent
 
     def exists(self, key: str) -> bool:
         return self._path(key).exists()

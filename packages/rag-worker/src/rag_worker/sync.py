@@ -151,7 +151,7 @@ async def _sync_source(
         for external_id, doc in existing.items():
             if external_id not in seen and doc.status != "deleted":
                 doc.status = "deleted"
-                await remove_document_chunks(session, doc.id)
+                await remove_document_chunks(session, doc.id, blob_store)
                 blob_store.delete(doc.blob_key)
                 counts["deleted"] += 1
 

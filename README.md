@@ -87,6 +87,17 @@ claude mcp add --transport http rag http://localhost:8000/mcp \
 
 Clients that only speak stdio can bridge with `npx mcp-remote http://localhost:8000/mcp --header "Authorization:Bearer ragk_..."`.
 
+### Figures in search results
+
+When a collection's pipeline has a `vision_llm` configured, figures in documents (diagrams, charts) are described into the index and their cropped images are stored. Search hits whose text came from a figure carry `metadata.figures[].key`; fetch the image with the same bearer token:
+
+```sh
+curl -H "Authorization: Bearer ragk_..." \
+  "http://localhost:8000/search/figures?key=<key-from-hit-metadata>" -o figure.png
+```
+
+Access is checked exactly like `/search` (collection roles, public visibility, API-key scopes).
+
 ## Writing a plugin
 
 Any pip-installable package can extend the platform — no core changes. Implement one of the ABCs in `rag_core.interfaces` and register it under the matching entry-point group:

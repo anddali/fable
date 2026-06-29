@@ -116,6 +116,37 @@ class DocumentOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class DocumentWithChunksOut(DocumentOut):
+    size_bytes: int = 0
+    chunk_count: int = 0
+
+
+class DocumentDetailOut(DocumentWithChunksOut):
+    doc_metadata: dict[str, Any] = Field(default_factory=dict)
+    content_hash: str = ""
+    blob_key: str = ""
+
+
+class DocumentListOut(BaseModel):
+    items: list[DocumentWithChunksOut]
+    total: int
+
+
+class ChunkOut(BaseModel):
+    id: uuid.UUID
+    ordinal: int
+    token_count: int
+    text: str
+    chunk_metadata: dict[str, Any] = Field(default_factory=dict)
+    # The vector itself is never shipped; this just signals indexing health.
+    has_embedding: bool = False
+
+
+class ChunkListOut(BaseModel):
+    items: list[ChunkOut]
+    total: int
+
+
 # --- Sync -------------------------------------------------------------------
 
 

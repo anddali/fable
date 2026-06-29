@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from rag_core import plugins
 from rag_core.blobstore import BlobStore
 from rag_core.config import Settings
-from rag_core.db.models import Chunk, Collection, Document
+from rag_core.db.models import Chunk, Collection, Document, Source, UploadItem
 from rag_core.schemas import Block, ParsedDocument, PipelineConfig, RawDocument
 
 log = structlog.get_logger(__name__)
@@ -66,7 +66,7 @@ async def index_document(
         # per page); keep the worker event loop responsive.
         parsed = await asyncio.to_thread(parser.parse, raw)
 
-        parsed = await _describe_images(parsed, pipeline)
+        parsed = await _describe_images(parsed, pipeline, blob_store, document)
 
         for ref in pipeline.transformers:
             transformer = plugins.create("transformer", ref.name, ref.config)
@@ -80,6 +80,7 @@ async def index_document(
         if len(vectors) != len(drafts):
             raise RuntimeError(f"Embedder returned {len(vectors)} vectors for {len(drafts)} chunks")
 
+        old_figure_keys = await _figure_keys(session, document.id)
         await session.execute(delete(Chunk).where(Chunk.document_id == document.id))
         session.add_all(
             Chunk(
@@ -93,6 +94,15 @@ async def index_document(
             )
             for draft, vector in zip(drafts, vectors, strict=True)
         )
+        # Drop figure crops superseded by this run (same pattern as payload
+        # blob cleanup in sync). Unchanged content reuses identical keys, so
+        # the difference set is empty on a no-op reindex.
+        new_figure_keys = {
+            f["key"] for d in drafts for f in d.metadata.get("figures", []) if f.get("key")
+        }
+        for stale in old_figure_keys - new_figure_keys:
+            blob_store.delete(stale)
+
         document.status = "indexed"
         document.error = ""
         document.indexed_at = datetime.now(UTC)
@@ -111,12 +121,26 @@ async def index_document(
         raise
 
 
-async def _describe_images(parsed: ParsedDocument, pipeline: PipelineConfig) -> ParsedDocument:
+def figure_blob_key(collection_id, document_id, content_hash: str, n: int) -> str:
+    """Deterministic key: same content -> same keys, so reindex overwrites
+    in place and the stale-key difference set stays empty."""
+    return f"{collection_id}/{document_id}/figures/{content_hash[:16]}-{n}.png"
+
+
+async def _describe_images(
+    parsed: ParsedDocument,
+    pipeline: PipelineConfig,
+    blob_store: BlobStore,
+    document: Document,
+) -> ParsedDocument:
     """Turn ``image`` blocks into text via the collection's vision plugin.
 
-    Without a configured ``vision_llm`` (or for images the plugin returns
-    nothing useful about) image blocks are dropped. Image bytes live only in
-    block metadata during indexing and never reach the database.
+    Described figures keep their cropped image: the PNG is persisted to the
+    blob store and referenced from the block metadata (``figure``), which the
+    chunker rolls up into ``chunk_metadata["figures"]`` — that's what lets
+    search hits link back to the actual image. Without a configured
+    ``vision_llm`` (or for images the plugin has nothing to say about) image
+    blocks are dropped. Raw image bytes never reach the database.
     """
     image_blocks = [b for b in parsed.blocks if b.type == "image"]
     descriptions: dict[int, str] = {}
@@ -133,6 +157,7 @@ async def _describe_images(parsed: ParsedDocument, pipeline: PipelineConfig) -> 
         descriptions = {id(b): desc for b, desc in zip(image_blocks, results, strict=True)}
 
     blocks: list[Block] = []
+    figure_n = 0
     for block in parsed.blocks:
         if block.type != "image":
             blocks.append(block)
@@ -140,14 +165,70 @@ async def _describe_images(parsed: ParsedDocument, pipeline: PipelineConfig) -> 
         description = descriptions.get(id(block), "").strip()
         if not description:
             continue
+        key = figure_blob_key(
+            document.collection_id, document.id, document.content_hash, figure_n
+        )
+        figure_n += 1
+        blob_store.put(key, base64.b64decode(block.metadata.get("image_b64", "")))
         metadata = {k: v for k, v in block.metadata.items() if k not in ("image_b64", "image_mime")}
+        metadata["figure"] = {"key": key, **({"page": metadata["page"]} if "page" in metadata else {})}
         blocks.append(Block(type="paragraph", text=f"[Figure: {description}]", metadata=metadata))
     parsed.blocks = blocks
     return parsed
 
 
-async def remove_document_chunks(session: AsyncSession, document_id: uuid.UUID) -> None:
+async def _figure_keys(session: AsyncSession, document_id: uuid.UUID | str) -> set[str]:
+    """Figure blob keys referenced by a document's current chunks."""
+    result = await session.execute(
+        select(Chunk.chunk_metadata).where(Chunk.document_id == document_id)
+    )
+    return {
+        f["key"]
+        for (meta,) in result
+        for f in (meta or {}).get("figures", [])
+        if f.get("key")
+    }
+
+
+async def remove_document_chunks(
+    session: AsyncSession, document_id: uuid.UUID, blob_store: BlobStore | None = None
+) -> None:
+    if blob_store is not None:
+        for key in await _figure_keys(session, document_id):
+            blob_store.delete(key)
     await session.execute(delete(Chunk).where(Chunk.document_id == document_id))
+
+
+async def collection_blob_keys(session: AsyncSession, collection_id: uuid.UUID) -> set[str]:
+    """Every blob key owned by a collection: document payloads + figure images.
+
+    Used to purge the blob store when a collection is deleted. The DB-level
+    ``ON DELETE CASCADE`` removes rows only, so blobs must be collected before
+    the rows vanish and deleted afterwards. Store-agnostic: keys come from the
+    rows themselves, not from the on-disk layout."""
+    keys: set[str] = set()
+    payloads = await session.execute(
+        select(Document.blob_key).where(Document.collection_id == collection_id)
+    )
+    keys.update(k for (k,) in payloads if k)
+    figures = await session.execute(
+        select(Chunk.chunk_metadata).where(Chunk.collection_id == collection_id)
+    )
+    keys.update(
+        f["key"]
+        for (meta,) in figures
+        for f in (meta or {}).get("figures", [])
+        if f.get("key")
+    )
+    # Staging blobs for manual uploads live under uploads/{source}/... — keyed by
+    # source, not collection/document, so they aren't covered by the rows above.
+    uploads = await session.execute(
+        select(UploadItem.blob_key)
+        .join(Source, Source.id == UploadItem.source_id)
+        .where(Source.collection_id == collection_id)
+    )
+    keys.update(k for (k,) in uploads if k)
+    return keys
 
 
 async def documents_pending(session: AsyncSession, collection_id: uuid.UUID) -> list[uuid.UUID]:

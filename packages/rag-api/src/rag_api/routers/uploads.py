@@ -109,6 +109,7 @@ async def delete_file(
     source_id: uuid.UUID,
     item_id: uuid.UUID,
     session: DbSession,
+    blob_store: BlobStoreDep,
     collection: Collection = collection_access(CollectionRole.EDITOR),
 ) -> None:
     await _get_upload_source(session, collection.id, source_id)
@@ -118,3 +119,7 @@ async def delete_file(
     # Soft delete: the next sync tombstones the document and removes chunks.
     item.deleted = True
     await session.commit()
+    # The connector skips deleted items, so it never reads this staging blob
+    # again — drop it now so it doesn't orphan (the document's canonical copy
+    # is removed separately when sync tombstones the document).
+    blob_store.delete(item.blob_key)

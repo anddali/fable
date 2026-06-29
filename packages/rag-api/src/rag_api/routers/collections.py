@@ -5,9 +5,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from rag_api.auth import CurrentUser
-from rag_api.deps import DbSession, collection_access, load_collection
+from rag_api.deps import BlobStoreDep, DbSession, collection_access, load_collection
 from rag_api.dto import AclEntryIn, AclEntryOut, CollectionCreate, CollectionOut, CollectionUpdate
 from rag_core.db.models import Collection, CollectionPrincipal
+from rag_core.pipeline.indexer import collection_blob_keys
 from rag_core.rbac import CollectionRole, can_create_collections, effective_collection_role
 
 router = APIRouter(prefix="/collections", tags=["collections"])
@@ -100,10 +101,18 @@ async def update_collection(
 @router.delete("/{collection_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_collection(
     session: DbSession,
+    blob_store: BlobStoreDep,
     collection: Collection = collection_access(CollectionRole.OWNER),
 ) -> None:
+    # Collect blob keys before the rows cascade away; the DB ON DELETE CASCADE
+    # only removes rows, so payloads and figures would otherwise orphan on disk.
+    blob_keys = await collection_blob_keys(session, collection.id)
     await session.delete(collection)
     await session.commit()
+    # Only after the row delete commits do we touch the store, so a failed
+    # delete never strands the DB pointing at missing blobs.
+    for key in blob_keys:
+        blob_store.delete(key)
 
 
 # --- ACL management ---------------------------------------------------------

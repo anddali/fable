@@ -138,7 +138,13 @@ textarea { font-family: var(--mono); font-size: 12.5px; min-height: 88px; }
 input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent-dim); }
 .check { display: flex; gap: 9px; align-items: center; padding: 6px 8px; border-radius: 6px; cursor: pointer; font-size: 13px; }
 .check:hover { background: var(--panel-2); }
-.check input { accent-color: var(--accent); }
+.check input { accent-color: var(--accent); flex: none; }
+.check-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 2px; max-height: 320px; overflow-y: auto; }
+
+/* inline form field — sits in a .row beside others instead of full-width block */
+label.f.inline { margin-bottom: 0; }
+label.f.inline select { min-width: 190px; }
+label.f.inline input[type=number] { width: 76px; }
 
 .btn {
   background: var(--panel-2); color: var(--text); border: 1px solid var(--line-2);
@@ -187,4 +193,15 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
 .hit:last-child { border-bottom: 0; }
 .hit .hit-meta { font-family: var(--mono); font-size: 10.5px; color: var(--faint); letter-spacing: 0.06em; margin-bottom: 3px; }
 .hit .hit-text { font-size: 13px; color: var(--text); white-space: pre-wrap; }
+.hit-rank { display: inline-block; min-width: 18px; margin-right: 7px; color: var(--faint); font-size: 11px; }
+.hit .kv.tiny dt { font-size: 9.5px; }
+.hit .kv.tiny dd { font-size: 11px; }
 .section-gap { margin-top: 14px; }
+
+/* figure crops attached to chunks / search hits */
+.figure-thumb {
+  display: inline-block; max-height: 120px; max-width: 48%; margin: 6px 6px 0 0;
+  border: 1px solid var(--line-2); border-radius: 6px; cursor: zoom-in;
+  background: #fff;
+}
+.figure-full { max-width: 100%; max-height: 70vh; border-radius: 6px; background: #fff; }

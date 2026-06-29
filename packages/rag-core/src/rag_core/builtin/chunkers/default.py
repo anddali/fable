@@ -43,22 +43,30 @@ class DefaultChunker(ChunkerPlugin):
         current: list[str] = []
         current_tokens = 0
         current_path = ""
+        # Figure refs (set by the vision pipeline step) of the blocks packed
+        # into the running chunk; surfaced as chunk_metadata["figures"] so
+        # search hits can link back to the stored image crops.
+        current_figures: list[dict] = []
 
         def flush() -> None:
-            nonlocal current, current_tokens
+            nonlocal current, current_tokens, current_figures
             body = "\n\n".join(current).strip()
-            current, current_tokens = [], 0
+            figures = current_figures
+            current, current_tokens, current_figures = [], 0, []
             if not body:
                 return
             text = (
                 f"[{current_path}]\n{body}" if cfg.include_heading_path and current_path else body
             )
+            metadata: dict = {"heading_path": current_path} if current_path else {}
+            if figures:
+                metadata["figures"] = figures
             chunks.append(
                 ChunkDraft(
                     ordinal=len(chunks),
                     text=text,
                     token_count=estimate_tokens(text),
-                    metadata={"heading_path": current_path} if current_path else {},
+                    metadata=metadata,
                 )
             )
 
@@ -71,12 +79,16 @@ class DefaultChunker(ChunkerPlugin):
                 heading_path.append((block.level, block.text))
                 current_path = " > ".join(text for _, text in heading_path)
                 continue
+            figure = block.metadata.get("figure")
             for piece in self._split_oversized(block, cfg.max_tokens):
                 tokens = estimate_tokens(piece)
                 if current and current_tokens + tokens > cfg.max_tokens:
                     flush()
                 current.append(piece)
                 current_tokens += tokens
+                if figure:
+                    current_figures.append(figure)
+                    figure = None  # split pieces share one source figure
 
         flush()
         return chunks

@@ -7,6 +7,7 @@ run without the docling models installed.
 import base64
 import io
 import json
+import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -265,6 +266,20 @@ class FakeVision:
         return self.descriptions
 
 
+def _fake_store_and_doc():
+    from types import SimpleNamespace
+
+    store = SimpleNamespace(blobs={})
+    store.put = lambda key, data: store.blobs.__setitem__(key, data)
+    store.delete = lambda key: store.blobs.pop(key, None)
+    doc = SimpleNamespace(
+        id=uuid.UUID("00000000-0000-0000-0000-00000000000d"),
+        collection_id=uuid.UUID("00000000-0000-0000-0000-00000000000c"),
+        content_hash="abc123def4567890",
+    )
+    return store, doc
+
+
 async def test_describe_images_replaces_blocks_and_strips_bytes(monkeypatch):
     fake = FakeVision(["a system diagram"])
     monkeypatch.setattr(
@@ -272,8 +287,9 @@ async def test_describe_images_replaces_blocks_and_strips_bytes(monkeypatch):
     )
     parsed = ParsedDocument(blocks=[Block(text="before"), _image_block(), Block(text="after")])
     pipeline = PipelineConfig(vision_llm=PluginRef(name="whatever"))
+    store, doc = _fake_store_and_doc()
 
-    result = await _describe_images(parsed, pipeline)
+    result = await _describe_images(parsed, pipeline, store, doc)
 
     assert fake.received == [(b"img", "image/png")]
     texts = [(b.type, b.text) for b in result.blocks]
@@ -285,12 +301,15 @@ async def test_describe_images_replaces_blocks_and_strips_bytes(monkeypatch):
     figure = result.blocks[1]
     assert "image_b64" not in figure.metadata
     assert figure.metadata["page"] == 5
+    assert figure.metadata["figure"]["key"] in store.blobs
 
 
 async def test_describe_images_drops_blocks_without_vision_plugin():
     parsed = ParsedDocument(blocks=[Block(text="kept"), _image_block()])
-    result = await _describe_images(parsed, PipelineConfig())
+    store, doc = _fake_store_and_doc()
+    result = await _describe_images(parsed, PipelineConfig(), store, doc)
     assert [b.text for b in result.blocks] == ["kept"]
+    assert store.blobs == {}
 
 
 async def test_describe_images_drops_empty_descriptions(monkeypatch):
@@ -299,8 +318,12 @@ async def test_describe_images_drops_empty_descriptions(monkeypatch):
         "rag_core.pipeline.indexer.plugins.create", lambda kind, name, config: fake
     )
     parsed = ParsedDocument(blocks=[_image_block()])
-    result = await _describe_images(parsed, PipelineConfig(vision_llm=PluginRef(name="x")))
+    store, doc = _fake_store_and_doc()
+    result = await _describe_images(
+        parsed, PipelineConfig(vision_llm=PluginRef(name="x")), store, doc
+    )
     assert result.blocks == []
+    assert store.blobs == {}
 
 
 # ---------------------------------------------------------------------------
