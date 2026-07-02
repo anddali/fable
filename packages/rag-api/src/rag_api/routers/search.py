@@ -6,13 +6,19 @@ import uuid
 
 from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import Response
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
 from rag_api.auth import CurrentPrincipal
 from rag_api.deps import BlobStoreDep, DbSession, SettingsDep
-from rag_api.dto import SearchableCollection, SearchRequest, SearchResponse
-from rag_core.db.models import Collection, QueryLog
+from rag_api.dto import (
+    ChunkListOut,
+    ChunkOut,
+    SearchableCollection,
+    SearchRequest,
+    SearchResponse,
+)
+from rag_core.db.models import Chunk, Collection, Document, QueryLog
 from rag_core.rbac import effective_collection_role
 from rag_core.retrieval.service import search as run_search
 from rag_core.schemas import Principal
@@ -83,9 +89,22 @@ async def search(
 
     Returns the most relevant document chunks for the query, with source
     metadata. Omit ``collection_ids`` to search every collection the caller
-    can read. Hits whose text came from document figures (diagrams, charts)
-    carry ``metadata.figures[].key``; fetch the actual image via
-    ``GET /search/figures?key=<key>`` with the same Authorization header.
+    can read.
+
+    Each hit is a short *excerpt*, not the whole document — it is a sample for
+    locating relevant material. Do NOT summarize, compare, or draw conclusions
+    about an entire document from search hits alone; they are a small, non-
+    contiguous slice. When the task needs more than the excerpt (summarizing a
+    document, listing everything it says about X, reading the passage around a
+    hit), call ``get_document_chunks`` with the hit's ``document_id`` to read
+    the actual content.
+
+    Figures (diagrams, charts) are already described in the chunk text by the
+    indexer's vision step, so a figure's meaning is present in the results you
+    get — you do not need the image itself to reason about it. The raw image is
+    not available as a tool; it can only be fetched over REST at
+    ``GET /search/figures?key=<metadata.figures[].key>`` (same Authorization
+    header), for display in a UI.
     """
     # The retrieval query is hard-filtered to exactly the readable set.
     readable = await _readable_collections(session, principal)
@@ -127,6 +146,74 @@ async def search(
     await session.commit()
 
     return SearchResponse(hits=hits, searched_collection_ids=target_ids)
+
+
+@router.get("/documents/{document_id}/chunks", operation_id="get_document_chunks")
+async def get_document_chunks(
+    document_id: uuid.UUID,
+    session: DbSession,
+    principal: CurrentPrincipal,
+    from_ordinal: int = 0,
+    limit: int = 20,
+) -> ChunkListOut:
+    """Read consecutive chunks of a single document, ordered by position.
+
+    Use this to read a document's real content instead of relying on
+    ``search_documents`` excerpts. ``total`` is the document's full chunk count;
+    the response returns chunks ``from_ordinal .. from_ordinal + limit - 1``.
+
+    Two workflows:
+
+    - Read the WHOLE document (summarize, analyze, list everything it says):
+      start at ``from_ordinal=0`` and page forward, advancing ``from_ordinal``
+      by the number of chunks returned each call, until you have collected all
+      ``total`` chunks. Do not stop after one page — a summary built from a
+      partial read is wrong.
+    - Read AROUND a search hit (get the passage a match sits in): pass
+      ``from_ordinal = hit.ordinal - 2`` for the chunks just before and after it.
+
+    Access mirrors /search exactly: the document's collection must be readable
+    by the caller (and inside an API key's scopes).
+    """
+    document = await session.get(Document, document_id)
+    if document is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Document not found")
+    readable = await _readable_collections(session, principal)
+    if document.collection_id not in readable:
+        # Same shape as "doesn't exist" — don't leak document existence.
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Document not found")
+
+    total = (
+        await session.execute(
+            select(func.count()).select_from(Chunk).where(Chunk.document_id == document_id)
+        )
+    ).scalar() or 0
+    # Select columns explicitly so the embedding vector never leaves the DB.
+    rows = await session.execute(
+        select(
+            Chunk.id,
+            Chunk.ordinal,
+            Chunk.token_count,
+            Chunk.text,
+            Chunk.chunk_metadata,
+            Chunk.embedding.isnot(None).label("has_embedding"),
+        )
+        .where(Chunk.document_id == document_id, Chunk.ordinal >= max(from_ordinal, 0))
+        .order_by(Chunk.ordinal)
+        .limit(min(limit, 100))
+    )
+    items = [
+        ChunkOut(
+            id=r.id,
+            ordinal=r.ordinal,
+            token_count=r.token_count,
+            text=r.text,
+            chunk_metadata=r.chunk_metadata,
+            has_embedding=bool(r.has_embedding),
+        )
+        for r in rows
+    ]
+    return ChunkListOut(items=items, total=total)
 
 
 @router.get("/search/figures", operation_id="get_search_figure")

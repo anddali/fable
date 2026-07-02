@@ -48,6 +48,38 @@ def test_mcp_exposes_exactly_the_search_tools():
     assert "collections the caller can search" in tools["list_searchable_collections"].description
 
 
+def test_mcp_exposes_document_chunk_paging():
+    """The per-document chunk reader is offered alongside the search tools."""
+    from fastapi_mcp import FastApiMCP
+
+    from rag_api.routers import search
+
+    app = FastAPI()
+    app.include_router(search.router)
+    mcp = FastApiMCP(
+        app,
+        include_operations=[
+            "search_documents",
+            "list_searchable_collections",
+            "get_document_chunks",
+        ],
+    )
+    tools = {t.name: t for t in mcp.tools}
+    assert "get_document_chunks" in tools
+    assert "consecutive chunks of a single document" in tools["get_document_chunks"].description
+
+
+def test_document_chunks_endpoint_is_on_the_search_surface():
+    """Chunk paging shares the API-key/MCP surface, not the SSO-only inspector."""
+    from rag_api.routers import search
+
+    route = next(
+        r for r in search.router.routes if getattr(r, "operation_id", None) == "get_document_chunks"
+    )
+    assert route.path == "/documents/{document_id}/chunks"
+    assert route.methods == {"GET"}
+
+
 def test_auth_disabled_forbidden_in_prod(monkeypatch):
     monkeypatch.setenv("RAG_AUTH__MODE", "disabled")
     monkeypatch.setenv("RAG_ENVIRONMENT", "prod")

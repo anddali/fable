@@ -80,14 +80,20 @@ def create_app() -> FastAPI:
     app.include_router(ui.router)
     app.mount("/ui", NoCacheStaticFiles(directory=ui.STATIC_DIR, html=True), name="ui")
 
-    # MCP server at /mcp: exposes search + collection discovery as tools. The
-    # client's Authorization header is forwarded to the endpoint, so API keys
-    # and Entra tokens work exactly as they do over REST (keys stay search-only).
+    # MCP server at /mcp: exposes search + collection discovery + per-document
+    # chunk paging as tools. The client's Authorization header is forwarded to
+    # the endpoint, so API keys and Entra tokens work exactly as they do over
+    # REST. All three tools enforce the same read ACL (intersected with key
+    # scopes), so a search-capable key needs no extra grant to page chunks.
     mcp = FastApiMCP(
         app,
         name="RAG Platform",
         description="Semantic search over indexed document collections",
-        include_operations=["search_documents", "list_searchable_collections"],
+        include_operations=[
+            "search_documents",
+            "list_searchable_collections",
+            "get_document_chunks",
+        ],
         auth_config=AuthConfig(dependencies=[Depends(get_principal)]),
     )
     mcp.mount_http()
