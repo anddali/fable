@@ -1116,33 +1116,94 @@ function renderSources(col, sources, canEdit) {
 
 async function addSourceModal(colId) {
   const plugins = await api("/plugins");
-  const connectors = plugins.connector.map((p) => p.name);
+  const conns = plugins.connector;
   modal(`<h3>Add source</h3>
   <label class="f"><span>name</span><input id="as-name" type="text" placeholder="team-wiki"></label>
-  <label class="f"><span>connector</span><select id="as-conn">${connectors
-    .map((c) => `<option ${c === "upload" ? "selected" : ""}>${esc(c)}</option>`)
+  <label class="f"><span>connector</span><select id="as-conn">${conns
+    .map((c) => `<option value="${esc(c.name)}" ${c.name === "upload" ? "selected" : ""}>${esc(c.name)}</option>`)
     .join("")}</select></label>
-  <label class="f"><span>config (json — see schema hint below)</span><textarea id="as-cfg">{}</textarea></label>
-  <div id="as-hint" class="dim tiny mono"></div>
+  <div id="as-body"></div>
+  <div id="as-result" class="tiny mono"></div>
   <div class="row spread section-gap"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
-  <button id="as-go" class="btn btn-accent">Add</button></div>`);
-  const hint = () => {
-    const p = plugins.connector.find((x) => x.name === $("#as-conn").value);
-    const props = Object.keys(p?.config_schema?.properties || {});
-    $("#as-hint").textContent = props.length ? `fields: ${props.join(", ")}` : "no config needed";
+  <div class="row"><button id="as-test" class="btn btn-ghost">Test</button>
+  <button id="as-go" class="btn btn-accent">Add</button></div></div>`);
+
+  const current = () => conns.find((c) => c.name === $("#as-conn").value);
+  const setResult = (txt, ok) => {
+    const el = $("#as-result");
+    el.textContent = txt ? (ok ? "✓ " : "✗ ") + txt : "";
+    el.style.color = txt ? (ok ? "var(--accent)" : "var(--red)") : "";
   };
-  $("#as-conn").onchange = hint;
-  hint();
-  $("#as-go").onclick = async () => {
+  const setEnabled = (on) => {
+    $("#as-test").disabled = !on;
+    $("#as-go").disabled = !on;
+  };
+
+  const renderBody = () => {
+    const c = current();
+    setResult("");
+    if (c.supports_url_targets) {
+      if (!c.ready) {
+        $("#as-body").innerHTML =
+          `<div class="empty">${esc(c.name)} isn't configured on this server. Ask an admin to set up the connection.</div>`;
+        setEnabled(false);
+        return;
+      }
+      setEnabled(true);
+      $("#as-body").innerHTML = `
+      <label class="f"><span>link (paste a Confluence page, space, or folder URL)</span>
+      <input id="as-link" type="text" placeholder="https://org.atlassian.net/wiki/spaces/ENG/pages/12345/Title"></label>
+      <label class="row" style="gap:6px;align-items:center"><input id="as-kids" type="checkbox"><span>include child pages</span></label>`;
+    } else {
+      setEnabled(true);
+      const props = Object.keys(c?.config_schema?.properties || {});
+      $("#as-body").innerHTML = `
+      <label class="f"><span>config (json)</span><textarea id="as-cfg">{}</textarea></label>
+      <div class="dim tiny mono">${props.length ? `fields: ${props.join(", ")}` : "no config needed"}</div>`;
+    }
+  };
+  $("#as-conn").onchange = renderBody;
+  renderBody();
+
+  const payload = () => {
+    const c = current();
+    if (c.supports_url_targets) {
+      return {
+        name: $("#as-name").value.trim(),
+        connector: c.name,
+        link: ($("#as-link")?.value || "").trim(),
+        include_children: !!$("#as-kids")?.checked,
+      };
+    }
+    return {
+      name: $("#as-name").value.trim(),
+      connector: c.name,
+      config: JSON.parse($("#as-cfg")?.value || "{}"),
+    };
+  };
+
+  $("#as-test").onclick = async () => {
+    setResult("testing…", true);
     try {
-      await api(`/collections/${colId}/sources`, {
+      const p = payload();
+      const r = await api(`/collections/${colId}/sources/test`, {
         method: "POST",
         body: {
-          name: $("#as-name").value.trim(),
-          connector: $("#as-conn").value,
-          config: JSON.parse($("#as-cfg").value || "{}"),
+          connector: p.connector,
+          config: p.config || {},
+          link: p.link || null,
+          include_children: !!p.include_children,
         },
       });
+      setResult(r.detail, r.ok);
+    } catch (e) {
+      setResult(e.message, false);
+    }
+  };
+
+  $("#as-go").onclick = async () => {
+    try {
+      await api(`/collections/${colId}/sources`, { method: "POST", body: payload() });
       closeModal();
       toast("source added");
       route();

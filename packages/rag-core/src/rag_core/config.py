@@ -87,6 +87,50 @@ class ChatSettings(BaseModel):
     history_turns: int = 3
 
 
+class ConfluenceConnection(BaseModel):
+    """One Confluence service account (the operator-owned side of a source).
+
+    Secrets stay out of the DB and out of this object: ``api_token_env`` names an
+    environment variable holding the Atlassian API token, read at sync time.
+    """
+
+    base_url: str = ""  # e.g. https://yourorg.atlassian.net/wiki
+    user_email: str = ""  # service-account email (Atlassian basic auth username)
+    api_token_env: str = "CONFLUENCE_API_TOKEN"
+
+    @property
+    def configured(self) -> bool:
+        return bool(self.base_url and self.user_email)
+
+
+class ConfluenceSettings(BaseModel):
+    """Platform-wide Confluence connection(s).
+
+    The flat ``base_url``/``user_email``/``api_token_env`` fields define the
+    ``"default"`` connection — the only one most deployments need. ``connections``
+    is the door-open hook: a map of extra named connections (e.g. a scoped
+    service account for a restricted space) resolvable without any DB table.
+    Sources select one via their optional ``connection`` field.
+    """
+
+    base_url: str = ""
+    user_email: str = ""
+    api_token_env: str = "CONFLUENCE_API_TOKEN"
+    connections: dict[str, ConfluenceConnection] = Field(default_factory=dict)
+
+    def connection(self, name: str = "default") -> ConfluenceConnection:
+        """Resolve a connection by name. The single place name->connection maps."""
+        if name in self.connections:
+            return self.connections[name]
+        if name == "default":
+            return ConfluenceConnection(
+                base_url=self.base_url,
+                user_email=self.user_email,
+                api_token_env=self.api_token_env,
+            )
+        raise KeyError(name)
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="RAG_", env_nested_delimiter="__", env_file=".env", extra="ignore"
@@ -109,6 +153,7 @@ class Settings(BaseSettings):
     auth: AuthSettings = Field(default_factory=AuthSettings)
     embedding: EmbeddingSettings = Field(default_factory=EmbeddingSettings)
     chat: ChatSettings = Field(default_factory=ChatSettings)
+    confluence: ConfluenceSettings = Field(default_factory=ConfluenceSettings)
 
     # Hard ceilings applied regardless of per-collection pipeline config.
     max_upload_bytes: int = 50 * 1024 * 1024

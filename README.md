@@ -116,7 +116,9 @@ Any pip-installable package can extend the platform — no core changes. Impleme
 jira = "my_pkg.connector:JiraConnector"
 ```
 
-Each plugin declares a pydantic `config_model`; operator-supplied config is validated at onboarding time. Convention: configs never contain secrets — they name environment variables (`api_token_env`) that hold them. `GET /plugins` lists everything installed with JSON schemas. The packages under `plugins/` are complete working examples.
+Each plugin declares a pydantic `config_model`; operator-supplied config is validated at onboarding time. Convention: configs never contain secrets — they name environment variables (`api_token_env`) that hold them. `GET /plugins` lists everything installed with JSON schemas (connectors also report `ready` and `supports_url_targets`). The packages under `plugins/` are complete working examples.
+
+**Confluence** uses a platform-wide service account instead of per-source credentials: set `RAG_CONFLUENCE__BASE_URL` / `RAG_CONFLUENCE__USER_EMAIL` (and the token env named by `RAG_CONFLUENCE__API_TOKEN_ENV`, default `CONFLUENCE_API_TOKEN`) once. Users then add a source by pasting a page/space/folder URL — the target (`kind` + id) is parsed from the link. `POST /collections/{id}/sources/test` dry-runs a config or link (resolving redirects, checking the connection, pulling one page) so failures surface before the first sync. Extra named connections (`RAG_CONFLUENCE__CONNECTIONS`) and a source's `connection` field leave room for scoped accounts without a migration. Sources created with inline credentials still work unchanged.
 
 ## Entra ID setup (production)
 

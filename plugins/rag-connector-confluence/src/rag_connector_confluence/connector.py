@@ -8,15 +8,26 @@ children are enumerated the same way).
 from __future__ import annotations
 
 import os
+import re
 from collections.abc import AsyncIterator
 from datetime import datetime
-from typing import ClassVar, Literal
+from typing import TYPE_CHECKING, Any, ClassVar, Literal
+from urllib.parse import urlparse
 
 import httpx
 from pydantic import BaseModel, Field
 
+from rag_core.config import ConfluenceConnection
 from rag_core.interfaces import ConnectorPlugin, SyncContext
 from rag_core.schemas import RawDocument
+
+if TYPE_CHECKING:
+    from rag_core.config import Settings
+
+# Confluence Cloud URL shapes (path after the site, e.g. .../wiki/...).
+_PAGE_RE = re.compile(r"/pages/(\d+)")
+_FOLDER_RE = re.compile(r"/folder/(\d+)")
+_SPACE_RE = re.compile(r"/spaces/([^/]+)")
 
 
 class ConfluenceTarget(BaseModel):
@@ -26,29 +37,73 @@ class ConfluenceTarget(BaseModel):
 
 
 class ConfluenceConfig(BaseModel):
-    # e.g. https://yourorg.atlassian.net/wiki
-    base_url: str
-    user_email: str
-    # Environment variable holding the Atlassian API token (never the token itself).
-    api_token_env: str = "CONFLUENCE_API_TOKEN"
     targets: list[ConfluenceTarget] = Field(min_length=1)
     page_limit: int = 50
+    # Which platform connection (service account) to pull through. "default"
+    # unless the operator has configured extra named connections.
+    connection: str = "default"
+    # Deprecated per-source connection fields. Kept so sources created before the
+    # global connection existed keep working with no migration: when ``base_url``
+    # is set it wins over the platform connection. New sources leave these unset.
+    base_url: str | None = None
+    user_email: str | None = None
+    api_token_env: str | None = None
 
 
 class ConfluenceConnector(ConnectorPlugin):
     name: ClassVar[str] = "confluence"
     config_model: ClassVar[type[BaseModel]] = ConfluenceConfig
+    supports_url_targets: ClassVar[bool] = True
+
+    @classmethod
+    def ready(cls, settings: Settings) -> bool:
+        return settings.confluence.connection("default").configured
+
+    @classmethod
+    def parse_target_url(cls, url: str, settings: Settings) -> dict[str, Any] | None:
+        """Parse a Confluence Cloud URL into a ``{"targets": [...]}`` fragment.
+
+        A ``/pages/`` URL yields ``kind="page"`` (a single page); callers flip it
+        to ``tree`` when the user asks to include descendants. Returns None for
+        URLs this connector can't interpret.
+        """
+        path = urlparse(url).path
+        if m := _PAGE_RE.search(path):
+            target = {"kind": "page", "id": m.group(1)}
+        elif m := _FOLDER_RE.search(path):
+            target = {"kind": "folder", "id": m.group(1)}
+        elif m := _SPACE_RE.search(path):
+            target = {"kind": "space", "id": m.group(1)}
+        else:
+            return None
+        return {"targets": [target]}
+
+    def _connection(self, settings: Settings) -> ConfluenceConnection:
+        cfg: ConfluenceConfig = self.config  # type: ignore[assignment]
+        if cfg.base_url:  # legacy per-source config wins for back-compat
+            return ConfluenceConnection(
+                base_url=cfg.base_url,
+                user_email=cfg.user_email or "",
+                api_token_env=cfg.api_token_env or "CONFLUENCE_API_TOKEN",
+            )
+        return settings.confluence.connection(cfg.connection)
 
     async def iter_documents(self, ctx: SyncContext) -> AsyncIterator[RawDocument]:
         cfg: ConfluenceConfig = self.config  # type: ignore[assignment]
-        token = os.environ.get(cfg.api_token_env, "")
+        conn = self._connection(ctx.settings)
+        if not conn.configured:
+            raise RuntimeError(
+                f"Confluence connection {cfg.connection!r} is not configured "
+                "(set RAG_CONFLUENCE__BASE_URL and RAG_CONFLUENCE__USER_EMAIL)"
+            )
+        token = os.environ.get(conn.api_token_env, "")
         if not token:
-            raise RuntimeError(f"Environment variable {cfg.api_token_env!r} is not set")
+            raise RuntimeError(f"Environment variable {conn.api_token_env!r} is not set")
 
         seen: set[str] = set()
         async with httpx.AsyncClient(
-            base_url=cfg.base_url.rstrip("/"),
-            auth=(cfg.user_email, token),
+            base_url=conn.base_url.rstrip("/"),
+            auth=(conn.user_email, token),
             timeout=60,
             follow_redirects=True,
         ) as client:
@@ -64,7 +119,7 @@ class ConfluenceConnector(ConnectorPlugin):
                     if page_id in seen:
                         continue
                     seen.add(page_id)
-                    doc = await self._fetch_page(client, cfg, page_id)
+                    doc = await self._fetch_page(client, conn.base_url, page_id)
                     if doc is not None:
                         yield doc
 
@@ -115,7 +170,7 @@ class ConfluenceConnector(ConnectorPlugin):
             next_params = None  # the "next" link already carries the cursor
 
     async def _fetch_page(
-        self, client: httpx.AsyncClient, cfg: ConfluenceConfig, page_id: str
+        self, client: httpx.AsyncClient, base_url: str, page_id: str
     ) -> RawDocument | None:
         resp = await client.get(
             f"/api/v2/pages/{page_id}",
@@ -134,7 +189,7 @@ class ConfluenceConnector(ConnectorPlugin):
         return RawDocument(
             external_id=f"page:{page_id}",
             title=page.get("title", ""),
-            uri=f"{cfg.base_url.rstrip('/')}{web_ui}",
+            uri=f"{base_url.rstrip('/')}{web_ui}",
             mime_type="text/html",
             text=body_html,
             source_updated_at=updated_at,

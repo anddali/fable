@@ -2,31 +2,82 @@ from __future__ import annotations
 
 import uuid
 
+import httpx
 from fastapi import APIRouter, HTTPException, status
 from pydantic import ValidationError
 from sqlalchemy import select
 
-from rag_api.deps import DbSession, collection_access
-from rag_api.dto import DocumentOut, SourceCreate, SourceOut, SourceUpdate
+from rag_api.deps import BlobStoreDep, DbSession, SettingsDep, collection_access
+from rag_api.dto import (
+    DocumentOut,
+    SourceCreate,
+    SourceOut,
+    SourceTestRequest,
+    SourceTestResult,
+    SourceUpdate,
+)
 from rag_core import plugins
+from rag_core.config import Settings
 from rag_core.db.models import Collection, Document, Source
+from rag_core.interfaces import SyncContext
 from rag_core.rbac import CollectionRole
 
 router = APIRouter(prefix="/collections/{collection_id}/sources", tags=["sources"])
 
 
-def _validate_connector(connector: str, config: dict) -> dict:
+def _connector_class(connector: str):
     try:
-        cls = plugins.get_class("connector", connector)
+        return plugins.get_class("connector", connector)
     except plugins.PluginNotFoundError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+
+
+def _validate_connector(connector: str, config: dict) -> dict:
+    cls = _connector_class(connector)
     try:
         return cls.config_model.model_validate(config).model_dump()
     except ValidationError as exc:
+        # Field-path + message, not a raw pydantic dump.
+        errors = [
+            {"field": ".".join(str(p) for p in e["loc"]) or "(root)", "message": e["msg"]}
+            for e in exc.errors()
+        ]
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_ENTITY,
-            f"Invalid config for connector {connector!r}: {exc.errors()}",
+            {"message": f"Invalid config for connector {connector!r}", "errors": errors},
         ) from exc
+
+
+async def _resolve_link(connector: str, link: str, include_children: bool, settings: Settings) -> dict:
+    """Turn a pasted URL into a config fragment via the connector's URL parser.
+
+    Follows redirects first (Confluence short ``/x/`` links) and, for connectors
+    with a configured connection host, rejects links pointing elsewhere.
+    """
+    cls = _connector_class(connector)
+    if not cls.supports_url_targets:  # type: ignore[attr-defined]
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            f"Connector {connector!r} does not accept a link",
+        )
+    resolved = link
+    try:
+        async with httpx.AsyncClient(follow_redirects=True, timeout=15) as client:
+            resp = await client.get(link)
+            resolved = str(resp.url)
+    except httpx.HTTPError:
+        pass  # unreachable/short-link resolution failed; parse the raw link
+    fragment = cls.parse_target_url(resolved, settings)  # type: ignore[attr-defined]
+    if fragment is None:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            f"Could not recognize a {connector} target in {link!r}",
+        )
+    if include_children:
+        for target in fragment.get("targets", []):
+            if target.get("kind") == "page":
+                target["kind"] = "tree"
+    return fragment
 
 
 async def _get_source(session, collection_id: uuid.UUID, source_id: uuid.UUID) -> Source:
@@ -36,13 +87,64 @@ async def _get_source(session, collection_id: uuid.UUID, source_id: uuid.UUID) -
     return source
 
 
+@router.post("/test")
+async def test_source(
+    body: SourceTestRequest,
+    session: DbSession,
+    settings: SettingsDep,
+    blob_store: BlobStoreDep,
+    collection: Collection = collection_access(CollectionRole.EDITOR),
+) -> SourceTestResult:
+    """Dry-run a connector config before creating a source.
+
+    Resolves a pasted ``link`` into config, validates shape, checks the connector
+    is configured, and pulls one document. Returns the resolved config plus an
+    ok/error detail — so failures surface here, not at the next sync.
+    """
+    config = dict(body.config)
+    if body.link:
+        config = {**config, **await _resolve_link(body.connector, body.link, body.include_children, settings)}
+    try:
+        config = _validate_connector(body.connector, config)
+    except HTTPException as exc:
+        return SourceTestResult(ok=False, config=config, detail=str(exc.detail))
+    connector = plugins.create("connector", body.connector, config)
+    if not connector.ready(settings):
+        return SourceTestResult(
+            ok=False, config=config, detail=f"Connector {body.connector!r} is not configured"
+        )
+    ctx = SyncContext(
+        settings=settings,
+        session=session,
+        blob_store=blob_store,
+        source_id=uuid.uuid4(),
+        collection_id=collection.id,
+    )
+    try:
+        first = await anext(aiter(connector.iter_documents(ctx)), None)
+    except Exception as exc:  # noqa: BLE001 — report any connector error to the caller
+        return SourceTestResult(ok=False, config=config, detail=str(exc))
+    if first is None:
+        return SourceTestResult(ok=True, config=config, detail="Connected — no documents matched")
+    return SourceTestResult(ok=True, config=config, detail=f"OK — sample page: {first.title!r}")
+
+
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def create_source(
     body: SourceCreate,
     session: DbSession,
+    settings: SettingsDep,
     collection: Collection = collection_access(CollectionRole.EDITOR),
 ) -> SourceOut:
-    config = _validate_connector(body.connector, body.config)
+    config = dict(body.config)
+    if body.link:
+        config = {**config, **await _resolve_link(body.connector, body.link, body.include_children, settings)}
+    config = _validate_connector(body.connector, config)
+    if not _connector_class(body.connector).ready(settings):  # type: ignore[attr-defined]
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            f"Connector {body.connector!r} is not configured on this server",
+        )
     existing = await session.execute(
         select(Source.id).where(Source.collection_id == collection.id, Source.name == body.name)
     )

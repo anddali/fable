@@ -66,12 +66,35 @@ class SourceCreate(BaseModel):
     connector: str
     config: dict[str, Any] = Field(default_factory=dict)
     enabled: bool = True
+    # Optional pasted URL resolved into ``config`` by the connector's URL parser
+    # (e.g. a Confluence page/space link). Merged over ``config``.
+    link: str | None = None
+    include_children: bool = False
 
 
 class SourceUpdate(BaseModel):
     name: str | None = None
     config: dict[str, Any] | None = None
     enabled: bool | None = None
+
+
+class SourceTestRequest(BaseModel):
+    """Dry-run a connector config (or a pasted link) before creating a source."""
+
+    connector: str
+    config: dict[str, Any] = Field(default_factory=dict)
+    # Optional URL to resolve into config via the connector's URL parser.
+    link: str | None = None
+    # For link resolution: include descendant pages (page -> tree).
+    include_children: bool = False
+
+
+class SourceTestResult(BaseModel):
+    ok: bool
+    # Config the connector resolved (e.g. targets derived from the link).
+    config: dict[str, Any] = Field(default_factory=dict)
+    # A human-readable confirmation (e.g. a sample document title) or the error.
+    detail: str = ""
 
 
 class SourceOut(BaseModel):

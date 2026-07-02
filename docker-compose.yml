@@ -37,6 +37,12 @@ services:
       RAG_CHAT__BASE_URL: ${RAG_CHAT__BASE_URL:-https://api.openai.com/v1}
       RAG_CHAT__MODEL: ${RAG_CHAT__MODEL:-gpt-4o-mini}
       RAG_CHAT__API_KEY_ENV: ${RAG_CHAT__API_KEY_ENV:-OPENAI_API_KEY}
+      # Confluence service account (the platform-wide "default" connection).
+      # The token itself stays in an env var named by RAG_CONFLUENCE__API_TOKEN_ENV.
+      RAG_CONFLUENCE__BASE_URL: ${RAG_CONFLUENCE__BASE_URL:-}
+      RAG_CONFLUENCE__USER_EMAIL: ${RAG_CONFLUENCE__USER_EMAIL:-}
+      RAG_CONFLUENCE__API_TOKEN_ENV: ${RAG_CONFLUENCE__API_TOKEN_ENV:-CONFLUENCE_API_TOKEN}
+      CONFLUENCE_API_TOKEN: ${CONFLUENCE_API_TOKEN:-}
       RAG_BLOB_DIR: /data/blobs
       RAG_CACHE_DIR: /data/cache
       # Docling layout/table models download here on first use and persist in

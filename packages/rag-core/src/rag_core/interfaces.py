@@ -95,6 +95,31 @@ class ConnectorPlugin(BasePlugin):
     #: detection is handled through ctx.state rather than full enumeration.
     incremental: ClassVar[bool] = False
 
+    #: True when the connector can derive source config from a pasted URL via
+    #: ``parse_target_url`` (lets the UI offer a link field instead of raw JSON).
+    supports_url_targets: ClassVar[bool] = False
+
+    @classmethod
+    def ready(cls, settings: Settings) -> bool:
+        """Whether the connector is usable given platform config.
+
+        Connectors that depend on operator-level configuration (a service-account
+        connection, an API base URL) override this to report readiness, so the UI
+        can gate the "add source" form instead of letting a doomed source be
+        created. Default: always ready (self-contained connectors).
+        """
+        return True
+
+    @classmethod
+    def parse_target_url(cls, url: str, settings: Settings) -> dict[str, Any] | None:
+        """Best-effort: turn a pasted URL into a source-config fragment.
+
+        Returns a dict merged into the source config (e.g. a resolved target), or
+        None if this connector can't interpret the URL. Pure/synchronous — no
+        network; endpoints that need to follow redirects do so before calling.
+        """
+        return None
+
 
 class ParserPlugin(BasePlugin):
     """Turns raw bytes/text into a structured ParsedDocument."""
