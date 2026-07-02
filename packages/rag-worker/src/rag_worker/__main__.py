@@ -7,7 +7,7 @@ import sys
 
 from rag_core.config import get_settings
 from rag_core.logging import configure_logging
-from rag_core.queue import QUEUE_INDEX, QUEUE_SYNC
+from rag_core.queue import QUEUE_BEAT, QUEUE_INDEX, QUEUE_SYNC
 
 
 def main() -> None:
@@ -20,7 +20,7 @@ def main() -> None:
     async def _run() -> None:
         async with app.open_async():
             await app.run_worker_async(
-                queues=[QUEUE_SYNC, QUEUE_INDEX],
+                queues=[QUEUE_SYNC, QUEUE_INDEX, QUEUE_BEAT],
                 concurrency=4,
                 install_signal_handlers=True,
             )

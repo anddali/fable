@@ -66,8 +66,11 @@ def test_parse_target_url_unrecognized():
 
 
 def test_connector_reports_url_support_and_readiness():
+    # Settings(confluence=...) is explicit, not Settings() — the latter reads
+    # the real .env, which may legitimately have Confluence configured locally.
     assert ConfluenceConnector.supports_url_targets is True
-    assert ConfluenceConnector.ready(Settings()) is False  # nothing configured
+    unconfigured = Settings(confluence=ConfluenceSettings())
+    assert ConfluenceConnector.ready(unconfigured) is False
     configured = Settings(
         confluence=ConfluenceSettings(base_url="https://x.atlassian.net/wiki", user_email="a@b.c")
     )

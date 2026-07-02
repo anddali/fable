@@ -22,6 +22,9 @@ TASK_INDEX_DOCUMENT = "rag_worker.tasks.index_document"
 
 QUEUE_SYNC = "sync"
 QUEUE_INDEX = "index"
+# Cron-beat dispatch (schedule_due_syncs) — kept off QUEUE_SYNC so a stuck sync
+# job can never block the minute tick that schedules new ones.
+QUEUE_BEAT = "beat"
 
 
 @lru_cache

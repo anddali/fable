@@ -6,11 +6,18 @@ import uuid
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from croniter import croniter
+from pydantic import BaseModel, Field, field_validator
 
 from rag_core.schemas import PipelineConfig, SearchHit
 
 # --- Collections -----------------------------------------------------------
+
+
+def _validate_cron(v: str) -> str:
+    if not croniter.is_valid(v):
+        raise ValueError(f"{v!r} is not a valid 5-field cron expression")
+    return v
 
 
 class CollectionCreate(BaseModel):
@@ -21,6 +28,8 @@ class CollectionCreate(BaseModel):
     sync_cron: str = "0 2 * * *"
     sync_enabled: bool = True
 
+    _validate_sync_cron = field_validator("sync_cron")(_validate_cron)
+
 
 class CollectionUpdate(BaseModel):
     description: str | None = None
@@ -28,6 +37,10 @@ class CollectionUpdate(BaseModel):
     pipeline: PipelineConfig | None = None
     sync_cron: str | None = None
     sync_enabled: bool | None = None
+
+    _validate_sync_cron = field_validator("sync_cron")(
+        lambda v: _validate_cron(v) if v is not None else v
+    )
 
 
 class CollectionOut(BaseModel):

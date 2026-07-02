@@ -783,7 +783,9 @@ async function collectionDetail(main, id) {
       <div class="card"><h2>settings</h2>
         <dl class="kv">
           <dt>description</dt><dd>${esc(col.description || "—")}</dd>
-          <dt>cron</dt><dd class="mono">${esc(col.sync_cron)} ${col.sync_enabled ? "" : "(disabled)"}</dd>
+          <dt>cron</dt><dd class="mono">${esc(col.sync_cron)} ${col.sync_enabled ? "" : "(disabled)"}${
+            isOwner ? ` <a href="#" id="col-cron-edit" class="tiny">edit</a>` : ""
+          }</dd>
           <dt>next sync</dt><dd>${fmtDate(col.next_sync_at)}</dd>
           <dt>parser</dt><dd class="mono">${esc(col.pipeline?.parser?.name || "auto")}</dd>
           <dt>vision LLM</dt><dd class="mono">${
@@ -907,6 +909,10 @@ async function collectionDetail(main, id) {
   }
   if (isOwner) {
     $("#col-pipe").onclick = () => editPipelineModal(col);
+    $("#col-cron-edit").onclick = (e) => {
+      e.preventDefault();
+      editCronModal(col);
+    };
     $("#col-sync-toggle").onclick = async () => {
       try {
         await api(`/collections/${id}`, {
@@ -1079,6 +1085,44 @@ async function editPipelineModal(col) {
       route();
     } catch (e) {
       toast(e.message, true);
+    }
+  };
+}
+
+const CRON_PRESETS = [
+  ["*/5 * * * *", "every 5 minutes"],
+  ["*/15 * * * *", "every 15 minutes"],
+  ["0 * * * *", "hourly"],
+  ["0 2 * * *", "daily at 2am"],
+  ["0 2 * * 1", "weekly (Mon 2am)"],
+];
+
+function editCronModal(col) {
+  modal(`<h3>Sync schedule</h3>
+  <p class="dim tiny">Standard 5-field cron (minute hour day month weekday), evaluated in UTC.</p>
+  <label class="f"><span>cron expression</span><input id="cron-val" type="text" value="${esc(col.sync_cron)}"></label>
+  <div class="row" style="flex-wrap:wrap;gap:6px">${CRON_PRESETS.map(
+    ([expr, label]) => `<button type="button" class="btn btn-sm btn-ghost" data-preset="${esc(expr)}">${esc(label)}</button>`
+  ).join("")}</div>
+  <div id="cron-err" class="tiny" style="color:var(--red)"></div>
+  <div class="row spread section-gap"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+  <button id="cron-go" class="btn btn-accent">Save</button></div>`);
+  document.querySelectorAll("[data-preset]").forEach((b) => {
+    b.onclick = () => {
+      $("#cron-val").value = b.dataset.preset;
+    };
+  });
+  $("#cron-go").onclick = async () => {
+    try {
+      await api(`/collections/${col.id}`, {
+        method: "PATCH",
+        body: { sync_cron: $("#cron-val").value.trim() },
+      });
+      closeModal();
+      toast("sync schedule updated");
+      route();
+    } catch (e) {
+      $("#cron-err").textContent = e.message;
     }
   };
 }

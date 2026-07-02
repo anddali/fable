@@ -18,7 +18,7 @@ from rag_core.config import get_settings
 from rag_core.db.models import Collection
 from rag_core.db.session import session_scope
 from rag_core.pipeline.indexer import index_document as run_index
-from rag_core.queue import QUEUE_INDEX, QUEUE_SYNC, defer_sync, get_app
+from rag_core.queue import QUEUE_BEAT, QUEUE_INDEX, QUEUE_SYNC, defer_sync, get_app
 from rag_worker.sync import run_collection_sync
 
 log = structlog.get_logger(__name__)
@@ -50,7 +50,11 @@ async def index_document(document_id: str) -> None:
 
 
 @app.periodic(cron="* * * * *")
-@app.task(name="rag_worker.tasks.schedule_due_syncs", queueing_lock="beat:schedule_due_syncs")
+@app.task(
+    name="rag_worker.tasks.schedule_due_syncs",
+    queue=QUEUE_BEAT,
+    queueing_lock="beat:schedule_due_syncs",
+)
 async def schedule_due_syncs(timestamp: int) -> None:
     """Minute beat: enqueue syncs for collections whose cron schedule is due.
 

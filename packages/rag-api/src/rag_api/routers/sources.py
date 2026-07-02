@@ -51,8 +51,13 @@ def _validate_connector(connector: str, config: dict) -> dict:
 async def _resolve_link(connector: str, link: str, include_children: bool, settings: Settings) -> dict:
     """Turn a pasted URL into a config fragment via the connector's URL parser.
 
-    Follows redirects first (Confluence short ``/x/`` links) and, for connectors
-    with a configured connection host, rejects links pointing elsewhere.
+    Tries the raw link first — canonical URLs (what "paste a page link" actually
+    gives you) parse with no network call. Only short links that don't parse
+    directly (e.g. Confluence's ``/wiki/x/AbCdEf``) fall back to a redirect
+    resolve. That fallback is unauthenticated, so it only helps when the target
+    redirects somewhere public; Confluence Cloud requires login to view a page,
+    so an unauthenticated fetch of a private page 302s to a login screen rather
+    than the page itself — resolving those short links isn't supported yet.
     """
     cls = _connector_class(connector)
     if not cls.supports_url_targets:  # type: ignore[attr-defined]
@@ -60,14 +65,14 @@ async def _resolve_link(connector: str, link: str, include_children: bool, setti
             status.HTTP_422_UNPROCESSABLE_ENTITY,
             f"Connector {connector!r} does not accept a link",
         )
-    resolved = link
-    try:
-        async with httpx.AsyncClient(follow_redirects=True, timeout=15) as client:
-            resp = await client.get(link)
-            resolved = str(resp.url)
-    except httpx.HTTPError:
-        pass  # unreachable/short-link resolution failed; parse the raw link
-    fragment = cls.parse_target_url(resolved, settings)  # type: ignore[attr-defined]
+    fragment = cls.parse_target_url(link, settings)  # type: ignore[attr-defined]
+    if fragment is None:
+        try:
+            async with httpx.AsyncClient(follow_redirects=True, timeout=15) as client:
+                resp = await client.get(link)
+                fragment = cls.parse_target_url(str(resp.url), settings)  # type: ignore[attr-defined]
+        except httpx.HTTPError:
+            pass
     if fragment is None:
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_ENTITY,
