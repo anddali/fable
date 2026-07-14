@@ -1510,6 +1510,24 @@ async function docsPage(main) {
     `  --header "Authorization:Bearer $RAG_API_KEY"`,
   ].join("\n");
 
+  const chunksSample = [
+    `GET ${origin}/documents/{document_id}/chunks?from_ordinal=0&limit=20`,
+    ``,
+    `{`,
+    `  "items": [`,
+    `    {`,
+    `      "id": "b3f1c2d4-…",`,
+    `      "ordinal": 0,`,
+    `      "token_count": 213,`,
+    `      "text": "[Employee Handbook > Vacation policy]\\nFull-time employees …",`,
+    `      "chunk_metadata": { "heading_path": "Employee Handbook > Vacation policy" },`,
+    `      "has_embedding": true`,
+    `    }`,
+    `  ],`,
+    `  "total": 32`,
+    `}`,
+  ].join("\n");
+
   const responseSample = [
     `{`,
     `  "hits": [`,
@@ -1540,7 +1558,7 @@ async function docsPage(main) {
   <div class="card">
     <h2>how it works</h2>
     <p>1 · Mint a key on the <a href="#/keys">API keys</a> page, scoped to the collections it may search. The secret (<span class="mono">ragk_…</span>) is shown once — store it as a secret (env var, vault), never in code.</p>
-    <p>2 · Call <span class="mono">POST ${esc(origin)}/search</span> with the key as a bearer token. Keys can <em>only</em> search: every management endpoint rejects them.</p>
+    <p>2 · Call <span class="mono">POST ${esc(origin)}/search</span> with the key as a bearer token. Keys are read-only: they can search, page document chunks and fetch figures — every management endpoint rejects them.</p>
     <p>3 · Feed the returned chunks to your LLM as context. Each hit carries its source <span class="mono">uri</span> for citations.</p>
     <p>4 · Hits derived from document figures (diagrams, charts) include <span class="mono">metadata.figures[].key</span> — fetch the actual image with <span class="mono">GET /search/figures?key=…</span> using the same bearer token (returns <span class="mono">image/png</span>, access-checked like /search).</p>
     <div class="doc-note">Results are permission-filtered server-side: a key only ever sees its scoped collections, and only while its owner still has access to them. Revoke keys anytime from the API keys page.</div>
@@ -1553,6 +1571,7 @@ async function docsPage(main) {
     <tr><td class="mono">top_k</td><td class="dim">int</td><td>1–50, default 8</td></tr>
     <tr><td class="mono">mode</td><td class="dim">string</td><td><span class="mono">hybrid</span> (vector + full-text, default) or <span class="mono">vector</span></td></tr>
   </tbody></table>
+  <div class="doc-note">About <span class="mono">score</span>: in <span class="mono">hybrid</span> mode it is a reciprocal-rank-fusion value (typically 0.01–0.06) — compare hits within one response, don't read it as a percentage or cosine similarity. <span class="mono">vector</span> mode returns plain similarity. <span class="mono">ordinal</span> is the chunk's position in its document — feed it to the chunks endpoint below to read the surrounding passage.</div>
   ${
     cols.length
       ? `<h2 class="section-gap">your collection ids</h2><table><tbody>${cols
@@ -1569,8 +1588,22 @@ async function docsPage(main) {
   ${codeCard("js", "javascript / node 18+", jsSnippet)}
   ${codeCard("resp", "response shape", responseSample)}
 
+  <div class="card section-gap"><h2>reading whole documents — GET /documents/{id}/chunks</h2>
+  <p>Search hits are short excerpts. To read a document's actual content (summarize it, read the passage around a hit), page its chunks in order using the <span class="mono">document_id</span> from any hit.</p>
+  <table><thead><tr><th>param</th><th>type</th><th>notes</th></tr></thead><tbody>
+    <tr><td class="mono">from_ordinal</td><td class="dim">int</td><td>start position, default 0 (negatives clamp to 0)</td></tr>
+    <tr><td class="mono">limit</td><td class="dim">int</td><td>chunks per page, default 20, max 100</td></tr>
+  </tbody></table>
+  <div class="doc-note">Whole document: start at <span class="mono">from_ordinal=0</span> and advance by the number of chunks returned until you have all <span class="mono">total</span>. Context around a hit: pass <span class="mono">from_ordinal = hit.ordinal − 2</span>. Access is identical to /search (404 outside the key's scope).</div>
+  </div>
+  ${codeCard("chunks", "chunks response shape", chunksSample)}
+
+  <div class="card section-gap"><h2>discovering collections — GET /search/collections</h2>
+  <p>Returns the collections the key can search, for building <span class="mono">collection_ids</span> filters programmatically. Each entry: <span class="mono">{ id, name, description, visibility }</span>.</p>
+  </div>
+
   <div class="card section-gap"><h2>mcp</h2>
-  <p>The API is also an MCP server at <span class="mono">${esc(origin)}/mcp</span> (streamable HTTP) with two tools: <span class="mono">search_documents</span> and <span class="mono">list_searchable_collections</span> (collection discovery). Auth is the same bearer header — use a scoped API key. Results are permission-filtered exactly like REST.</p>
+  <p>The API is also an MCP server at <span class="mono">${esc(origin)}/mcp</span> (streamable HTTP) with three tools: <span class="mono">search_documents</span>, <span class="mono">get_document_chunks</span> (read a document's content page by page) and <span class="mono">list_searchable_collections</span> (collection discovery). Auth is the same bearer header — use a scoped API key. Results are permission-filtered exactly like REST.</p>
   </div>
   ${codeCard("mcp", "connect an mcp client", mcpSnippet)}
 
