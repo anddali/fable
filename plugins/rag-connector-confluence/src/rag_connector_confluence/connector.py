@@ -7,6 +7,8 @@ children are enumerated the same way).
 
 from __future__ import annotations
 
+import base64
+import html as html_mod
 import os
 import re
 from collections.abc import AsyncIterator
@@ -15,6 +17,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, Literal
 from urllib.parse import urlparse
 
 import httpx
+import structlog
 from pydantic import BaseModel, Field
 
 from rag_core.config import ConfluenceConnection
@@ -24,10 +27,21 @@ from rag_core.schemas import RawDocument
 if TYPE_CHECKING:
     from rag_core.config import Settings
 
+log = structlog.get_logger(__name__)
+
 # Confluence Cloud URL shapes (path after the site, e.g. .../wiki/...).
 _PAGE_RE = re.compile(r"/pages/(\d+)")
 _FOLDER_RE = re.compile(r"/folder/(\d+)")
 _SPACE_RE = re.compile(r"/spaces/([^/]+)")
+
+# Storage-format image macros: <ac:image ...><ri:attachment ri:filename="..."/></ac:image>.
+_AC_IMAGE_RE = re.compile(r"<ac:image\b[^>]*>.*?</ac:image>", re.DOTALL)
+_RI_ATTACHMENT_RE = re.compile(r'<ri:attachment\b[^>]*\bri:filename="([^"]*)"')
+
+# Raster types the vision pipeline can describe; SVG and other vector or
+# non-image attachments are skipped.
+_IMAGE_MIMES = {"image/png", "image/jpeg", "image/gif", "image/webp"}
+_MAX_IMAGE_BYTES = 20 * 1024 * 1024
 
 
 class ConfluenceTarget(BaseModel):
@@ -181,6 +195,7 @@ class ConfluenceConnector(ConnectorPlugin):
         resp.raise_for_status()
         page = resp.json()
         body_html = ((page.get("body") or {}).get("storage") or {}).get("value", "")
+        body_html = await self._inline_images(client, page_id, body_html)
         version = page.get("version") or {}
         web_ui = ((page.get("_links") or {}).get("webui")) or f"/pages/{page_id}"
         updated_at = None
@@ -198,6 +213,67 @@ class ConfluenceConnector(ConnectorPlugin):
                 "version": version.get("number"),
             },
         )
+
+    async def _inline_images(
+        self, client: httpx.AsyncClient, page_id: str, body_html: str
+    ) -> str:
+        """Replace attachment image macros with data-URI ``<img>`` tags.
+
+        Storage format embeds images as ``<ac:image><ri:attachment
+        ri:filename="..."/></ac:image>`` — a reference, not a URL — so the
+        bytes must be pulled through the attachments API while we still hold
+        the authenticated client. Inlining them into the payload (rather than
+        stashing bytes in metadata) keeps images out of the database and makes
+        the content hash cover image edits, so delta detection reindexes a
+        page whose text is unchanged but whose figure was replaced.
+
+        External images (``<ri:url>``) are left alone: fetching them with this
+        client would send the Confluence credentials to an arbitrary host.
+        Unresolvable or non-raster attachments are also left as-is; the HTML
+        parser drops unknown macros, so failures degrade to today's behavior.
+        """
+        macros = _AC_IMAGE_RE.findall(body_html)
+        wanted = {
+            html_mod.unescape(m.group(1))
+            for macro in macros
+            if (m := _RI_ATTACHMENT_RE.search(macro))
+        }
+        if not wanted:
+            return body_html
+
+        links: dict[str, tuple[str, str]] = {}  # filename -> (download link, mime)
+        async for item in self._paginate(
+            client, f"/api/v2/pages/{page_id}/attachments", {"limit": 50}
+        ):
+            title = item.get("title") or ""
+            if title in wanted:
+                links[title] = (item.get("downloadLink") or "", item.get("mediaType") or "")
+
+        data_uris: dict[str, str] = {}
+        for name in wanted:
+            link, mime = links.get(name, ("", ""))
+            if not link or mime not in _IMAGE_MIMES:
+                continue
+            try:
+                resp = await client.get(link)
+                resp.raise_for_status()
+            except httpx.HTTPError:
+                log.warning("confluence.attachment_fetch_failed", page_id=page_id, filename=name)
+                continue
+            if len(resp.content) > _MAX_IMAGE_BYTES:
+                log.warning("confluence.attachment_too_large", page_id=page_id, filename=name)
+                continue
+            b64 = base64.b64encode(resp.content).decode("ascii")
+            data_uris[name] = f"data:{mime};base64,{b64}"
+
+        def _sub(match: re.Match) -> str:
+            if m := _RI_ATTACHMENT_RE.search(match.group(0)):
+                name = html_mod.unescape(m.group(1))
+                if uri := data_uris.get(name):
+                    return f'<img src="{uri}" alt="{html_mod.escape(name)}">'
+            return match.group(0)
+
+        return _AC_IMAGE_RE.sub(_sub, body_html)
 
 
 async def _aiter_single(value: str) -> AsyncIterator[str]:

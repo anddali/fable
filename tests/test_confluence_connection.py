@@ -1,5 +1,8 @@
 """Global Confluence connection: settings resolution, URL parsing, back-compat."""
 
+import base64
+
+import httpx
 import pytest
 
 from rag_connector_confluence.connector import ConfluenceConnector
@@ -110,6 +113,101 @@ def test_sources_router_exposes_test_endpoint():
     routes = {(r.path, m) for r in sources.router.routes for m in getattr(r, "methods", set())}
     assert ("/collections/{collection_id}/sources/test", "POST") in routes
     assert ("/collections/{collection_id}/sources", "POST") in routes
+
+
+# --- Attachment image inlining ---------------------------------------------
+
+_PNG_BYTES = b"\x89PNG fake image payload"
+_STORAGE_BODY = (
+    "<p>Intro text</p>"
+    '<ac:image ac:align="center"><ri:attachment ri:filename="diagram.png" /></ac:image>'
+    '<ac:image><ri:attachment ri:filename="missing.png" /></ac:image>'
+    '<ac:image><ri:url ri:value="https://elsewhere.example/x.png" /></ac:image>'
+    "<p>Outro text</p>"
+)
+
+
+def _confluence_transport() -> httpx.MockTransport:
+    def handler(request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        if path == "/wiki/api/v2/pages/42":
+            return httpx.Response(
+                200,
+                json={
+                    "id": "42",
+                    "title": "Page with images",
+                    "spaceId": 7,
+                    "version": {"number": 3, "createdAt": "2026-01-01T00:00:00Z"},
+                    "body": {"storage": {"value": _STORAGE_BODY}},
+                    "_links": {"webui": "/spaces/X/pages/42"},
+                },
+            )
+        if path == "/wiki/api/v2/pages/42/attachments":
+            return httpx.Response(
+                200,
+                json={
+                    "results": [
+                        {
+                            "title": "diagram.png",
+                            "mediaType": "image/png",
+                            "downloadLink": "/download/attachments/42/diagram.png?api=v2",
+                        }
+                        # "missing.png" is referenced by the body but gone from
+                        # the attachment list (deleted after the page was saved).
+                    ]
+                },
+            )
+        if path == "/wiki/download/attachments/42/diagram.png":
+            return httpx.Response(200, content=_PNG_BYTES)
+        return httpx.Response(404, json={})
+
+    return httpx.MockTransport(handler)
+
+
+@pytest.mark.asyncio
+async def test_fetch_page_inlines_attachment_images_as_data_uris():
+    connector = ConfluenceConnector.from_config({"targets": [{"kind": "page", "id": "42"}]})
+    async with httpx.AsyncClient(
+        transport=_confluence_transport(), base_url="https://x.atlassian.net/wiki"
+    ) as client:
+        doc = await connector._fetch_page(client, "https://x.atlassian.net/wiki", "42")
+
+    assert doc is not None
+    expected_b64 = base64.b64encode(_PNG_BYTES).decode("ascii")
+    assert f'<img src="data:image/png;base64,{expected_b64}" alt="diagram.png">' in doc.text
+    # Resolvable macro replaced; unresolvable ones left for the parser to drop.
+    assert doc.text.count("<ac:image") == 2
+    assert 'ri:filename="missing.png"' in doc.text
+    assert "ri:url" in doc.text
+    assert "Intro text" in doc.text and "Outro text" in doc.text
+
+
+@pytest.mark.asyncio
+async def test_fetch_page_skips_attachment_lookup_without_image_macros():
+    """Pages without image macros must not pay the attachments round-trip."""
+    calls: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request.url.path)
+        return httpx.Response(
+            200,
+            json={
+                "id": "7",
+                "title": "Plain",
+                "body": {"storage": {"value": "<p>No images here</p>"}},
+                "version": {"number": 1},
+                "_links": {},
+            },
+        )
+
+    connector = ConfluenceConnector.from_config({"targets": [{"kind": "page", "id": "7"}]})
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler), base_url="https://x.atlassian.net/wiki"
+    ) as client:
+        doc = await connector._fetch_page(client, "https://x.atlassian.net/wiki", "7")
+
+    assert doc is not None and "No images here" in doc.text
+    assert calls == ["/wiki/api/v2/pages/7"]
 
 
 @pytest.mark.asyncio

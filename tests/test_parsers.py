@@ -35,6 +35,24 @@ def test_html_parser_blocks():
     assert not any("x{}" in b.text for b in parsed.blocks)  # style stripped
 
 
+def test_html_parser_emits_image_blocks_for_data_uris():
+    import base64
+
+    b64 = base64.b64encode(b"fake-png-bytes").decode("ascii")
+    html = (
+        f'<p>Before</p><img src="data:image/png;base64,{b64}" alt="the diagram"/>'
+        f'<p>After</p><img src="https://example.com/remote.png">'
+    )
+    parsed = HtmlParser.from_config({}).parse(raw(html, "text/html"))
+    images = [b for b in parsed.blocks if b.type == "image"]
+    assert len(images) == 1  # URL-referenced images carry no bytes -> skipped
+    assert images[0].metadata["image_b64"] == b64
+    assert images[0].metadata["image_mime"] == "image/png"
+    assert images[0].metadata["alt"] == "the diagram"
+    texts = [b.text for b in parsed.blocks if b.type == "paragraph"]
+    assert texts == ["Before", "After"]
+
+
 def test_csv_rows_become_labeled_blocks():
     csv_text = "name,role\nada,engineer\ngrace,admiral\n"
     parsed = TabularParser.from_config({}).parse(raw(csv_text, "text/csv"))

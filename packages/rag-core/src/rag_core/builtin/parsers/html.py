@@ -31,6 +31,9 @@ class _Extractor(_StdHTMLParser):
         if tag in _SKIP:
             self._skip_depth += 1
             return
+        if tag == "img":
+            self._handle_image(dict(attrs))
+            return
         if tag in _HEADINGS:
             self._flush()
             self._mode = ("heading", _HEADINGS[tag])
@@ -53,6 +56,27 @@ class _Extractor(_StdHTMLParser):
     def handle_data(self, data: str) -> None:
         if not self._skip_depth:
             self._buf.append(data)
+
+    def _handle_image(self, attrs: dict[str, str | None]) -> None:
+        """Emit an ``image`` block for inline (data-URI) images.
+
+        Only base64 data URIs carry bytes the vision pipeline can use;
+        images referenced by URL are skipped — the parser has no network
+        access, and connectors that want images described inline them
+        (see the Confluence connector).
+        """
+        if self._skip_depth:
+            return
+        src = attrs.get("src") or ""
+        head, _, payload = src.partition(",")
+        if not (head.startswith("data:") and head.endswith(";base64") and payload):
+            return
+        mime = head[len("data:") : -len(";base64")]
+        self._flush()
+        metadata: dict = {"image_b64": payload, "image_mime": mime or "application/octet-stream"}
+        if alt := (attrs.get("alt") or "").strip():
+            metadata["alt"] = alt
+        self.blocks.append(Block(type="image", text="", metadata=metadata))
 
 
 class HtmlParser(ParserPlugin):
