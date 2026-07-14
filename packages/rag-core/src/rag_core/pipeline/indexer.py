@@ -39,8 +39,12 @@ async def index_document(
     """(Re)index one document. Returns the number of chunks written."""
     document = await session.get(Document, document_id)
     if document is None:
+        # Index jobs are enqueued only after the transaction creating the row
+        # commits, so a missing row means the document was deleted since (e.g.
+        # a collection cascade). Raise so the queue's retry policy covers any
+        # residual visibility race instead of recording a silent success.
         log.warning("index.document_missing", document_id=str(document_id))
-        return 0
+        raise RuntimeError(f"Document {document_id} not found")
     if document.status == "deleted":
         return 0
 

@@ -61,18 +61,21 @@ def setup_existing(store: LocalBlobStore, payload: bytes):
 async def run_sync(monkeypatch, store, doc, source, raws):
     monkeypatch.setattr(sync_mod.plugins, "create", lambda *a, **k: StubConnector(raws))
 
-    async def noop_defer(*_args, **_kwargs):
-        pass
+    deferred: list[str] = []
 
-    monkeypatch.setattr(sync_mod, "defer_index", noop_defer)
-    return await sync_mod._sync_source(FakeSession([doc]), store, source)
+    async def record_defer(document_id, *_args, **_kwargs):
+        deferred.append(document_id)
+
+    monkeypatch.setattr(sync_mod, "defer_index", record_defer)
+    counts, to_index = await sync_mod._sync_source(FakeSession([doc]), store, source)
+    return counts, to_index, deferred
 
 
 async def test_superseded_blob_is_deleted_on_content_change(tmp_path, monkeypatch):
     store = LocalBlobStore(tmp_path)
     doc, source, old_key = setup_existing(store, b"version 1")
 
-    counts = await run_sync(
+    counts, to_index, deferred = await run_sync(
         monkeypatch, store, doc, source,
         [RawDocument(external_id="page:1", title="t", text="version 2")],
     )
@@ -81,13 +84,18 @@ async def test_superseded_blob_is_deleted_on_content_change(tmp_path, monkeypatc
     assert doc.blob_key != old_key
     assert store.exists(doc.blob_key)  # new payload persisted
     assert not store.exists(old_key)  # superseded payload removed
+    # Changed docs are returned for the caller to enqueue post-commit;
+    # _sync_source itself must never defer (index jobs would race the
+    # still-open sync transaction).
+    assert to_index == [doc.id]
+    assert deferred == []
 
 
 async def test_unchanged_document_keeps_blob(tmp_path, monkeypatch):
     store = LocalBlobStore(tmp_path)
     doc, source, old_key = setup_existing(store, b"version 1")
 
-    counts = await run_sync(
+    counts, to_index, deferred = await run_sync(
         monkeypatch, store, doc, source,
         [RawDocument(external_id="page:1", title="t", text="version 1")],
     )
@@ -95,3 +103,19 @@ async def test_unchanged_document_keeps_blob(tmp_path, monkeypatch):
     assert counts["unchanged"] == 1
     assert doc.blob_key == old_key
     assert store.exists(old_key)
+    assert to_index == []
+    assert deferred == []
+
+
+async def test_index_missing_document_raises_for_retry():
+    """A vanished document row must fail the job (queue retries), not no-op."""
+    import pytest
+
+    from rag_core.pipeline.indexer import index_document
+
+    class NoneSession:
+        async def get(self, *_args, **_kwargs):
+            return None
+
+    with pytest.raises(RuntimeError, match="not found"):
+        await index_document(NoneSession(), None, None, uuid.uuid4())

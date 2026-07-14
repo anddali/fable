@@ -63,11 +63,21 @@ async def run_collection_sync(collection_id: str, trigger: str = "cron") -> dict
         try:
             async with session_scope() as session:
                 source = await session.get(Source, source_id)
-                stats[source.name] = await _sync_source(session, blob_store, source)
+                counts, to_index = await _sync_source(session, blob_store, source)
+                stats[source.name] = counts
         except Exception as exc:
             failed = True
             log.exception("sync.source_failed", source_id=str(source_id))
             stats[str(source_id)] = {"error": str(exc)[:2000]}
+            continue
+        # Enqueue only after the session_scope above has committed: the queue
+        # runs on its own connection, so a job deferred mid-transaction can be
+        # picked up before the document rows it needs are visible.
+        for document_id in to_index:
+            try:
+                await defer_index(str(document_id))
+            except Exception:  # AlreadyEnqueued -> an index job is already pending
+                log.info("sync.index_already_queued", document_id=str(document_id))
 
     async with session_scope() as session:
         run = await session.get(SyncRun, run_id)
@@ -82,7 +92,13 @@ async def run_collection_sync(collection_id: str, trigger: str = "cron") -> dict
 
 async def _sync_source(
     session: AsyncSession, blob_store: BlobStore, source: Source
-) -> dict[str, Any]:
+) -> tuple[dict[str, Any], list[uuid.UUID]]:
+    """Sync one source; returns (counts, document ids to index).
+
+    Deliberately does NOT enqueue index jobs — the caller defers them after
+    this session's transaction commits, so index workers never race ahead of
+    the document rows.
+    """
     connector: ConnectorPlugin = plugins.create("connector", source.connector, source.config)
     ctx = SyncContext(
         settings=get_settings(),
@@ -159,10 +175,4 @@ async def _sync_source(
     source.last_synced_at = datetime.now(UTC)
     await session.flush()
 
-    for document_id in to_index:
-        try:
-            await defer_index(str(document_id))
-        except Exception:  # AlreadyEnqueued -> an index job is already pending
-            log.info("sync.index_already_queued", document_id=str(document_id))
-
-    return counts
+    return counts, to_index
