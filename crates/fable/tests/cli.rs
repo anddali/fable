@@ -126,6 +126,45 @@ fn migrate_requires_database_url() {
 }
 
 #[test]
+fn migrate_fails_when_database_is_unreachable() {
+    fable()
+        .env("RAG_DATABASE_URL", "postgres://u:p@127.0.0.1:1/none")
+        .arg("migrate")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("database error"));
+}
+
+/// Several `fable migrate` processes at once (replicas booting together) all
+/// succeed. Needs `DATABASE_URL`; skipped otherwise.
+#[test]
+fn concurrent_migrate_processes_all_succeed() {
+    let Ok(db) = std::env::var("DATABASE_URL") else {
+        eprintln!("DATABASE_URL not set; skipping");
+        return;
+    };
+    let children: Vec<_> = (0..4)
+        .map(|_| {
+            KillOnDrop(
+                StdCommand::new(assert_cmd::cargo::cargo_bin("fable"))
+                    .env("RAG_DATABASE_URL", &db)
+                    .arg("migrate")
+                    .stdout(Stdio::null())
+                    .stderr(Stdio::piped())
+                    .spawn()
+                    .unwrap(),
+            )
+        })
+        .collect();
+    for mut child in children {
+        let status = child.0.wait().unwrap();
+        let mut stderr = String::new();
+        std::io::Read::read_to_string(child.0.stderr.as_mut().unwrap(), &mut stderr).unwrap();
+        assert!(status.success(), "fable migrate failed: {stderr}");
+    }
+}
+
+#[test]
 fn healthcheck_fails_when_nothing_listens() {
     let port = free_port();
     fable()

@@ -49,7 +49,11 @@ fn main() -> ExitCode {
         eprintln!("error: invalid RAG_LOG_LEVEL: {err}");
         return ExitCode::FAILURE;
     }
-    log_config_warnings(&config);
+    // The container healthcheck runs every few seconds; keep its output to
+    // the probe result.
+    if !matches!(cli.command, Some(Command::Healthcheck(_))) {
+        log_config_warnings(&config);
+    }
     match real_main(cli, config) {
         Ok(code) => code,
         Err(err) => {
