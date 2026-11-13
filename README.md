@@ -35,6 +35,10 @@ legacy/          Python Dockerfile + compose file (kept until the Rust cutover, 
 The Rust rewrite (`Cargo.toml`, `crates/`, spec in `docs/RUST_REWRITE_REQUIREMENTS.md`)
 builds from the root `Dockerfile`: `docker build -t fable .`, or
 `docker buildx build --platform linux/amd64,linux/arm64 -t fable .`.
+`docker compose up --build` runs it with only two services: `db` (Postgres +
+pgvector, the only volume) and `app` (the `fable` binary: API, workers and
+migrations on boot, no volume; scratch on the container filesystem). The app
+listens on http://localhost:8000 with auth disabled in `dev`.
 
 ## Quickstart (local dev)
 
