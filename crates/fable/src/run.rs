@@ -11,8 +11,18 @@ use crate::cli::RoleArg;
 pub async fn migrate(config: &BootstrapConfig) -> anyhow::Result<()> {
     let url = config.require_database_url()?;
     let pool = fable_db::connect(url).await?;
-    fable_db::migrate(&pool).await?;
-    tracing::info!("migrations applied");
+    let report = fable_db::migrate(&pool)
+        .await
+        .context("running database migrations")?;
+    if report.applied.is_empty() {
+        tracing::info!(
+            waited_for_lock = report.waited_for_lock,
+            "database schema is up to date"
+        );
+    } else {
+        tracing::info!(count = report.applied.len(), "migrations applied");
+    }
+    pool.close().await;
     Ok(())
 }
 
