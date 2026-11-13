@@ -32,6 +32,7 @@ axum = "0.8"
 base64 = "0.22"
 clap = { version = "4", features = ["derive"] }
 figment = { version = "0.10", features = ["env"] }
+jsonwebtoken = "9.3"
 reqwest = { version = "0.12", default-features = false }
 secrecy = "0.10"
 serde = { version = "1", features = ["derive"] }
@@ -43,6 +44,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 utoipa = "5"
 utoipa-axum = "0.2"
+wiremock = "0.6"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

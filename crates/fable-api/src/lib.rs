@@ -10,6 +10,7 @@ use tokio::net::TcpListener;
 use utoipa::openapi::OpenApi;
 use utoipa_axum::router::OpenApiRouter;
 
+pub mod auth;
 pub mod routes;
 
 /// Build the application router and its OpenAPI document.
