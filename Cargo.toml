@@ -28,6 +28,15 @@ connector-slack = { path = "crates/connector-slack" }
 
 # Third party
 anyhow = "1"
+async-trait = "0.1"
+bytes = "1"
+chrono = { version = "0.4", default-features = false, features = ["serde", "std"] }
+futures = "0.3"
+futures-core = "0.3"
+inventory = "0.3"
+schemars = "1"
+secrecy = { version = "0.10", features = ["serde"] }
+serde_path_to_error = "0.1"
 axum = "0.8"
 clap = { version = "4", features = ["derive"] }
 figment = { version = "0.10", features = ["env"] }

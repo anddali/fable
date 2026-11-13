@@ -5,8 +5,13 @@
 
 #![forbid(unsafe_code)]
 
+pub mod block;
 pub mod config;
+pub mod item;
+pub mod plugin;
 pub mod role;
 
+pub use block::{Block, BlockSpan, BlockType, ChunkDraft, ImageRef, Metadata, ParsedDocument};
 pub use config::{BootstrapConfig, ConfigError};
+pub use item::ItemRef;
 pub use role::Role;
