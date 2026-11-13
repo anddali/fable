@@ -8,6 +8,7 @@
 pub mod block;
 pub mod config;
 pub mod item;
+pub mod logging;
 pub mod plugin;
 pub mod role;
 
