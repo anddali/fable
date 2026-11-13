@@ -687,6 +687,13 @@ version = "0.1.0"
 [[package]]
 name = "fable-worker"
 version = "0.1.0"
+dependencies = [
+ "fable-core",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "tracing",
+]
 
 [[package]]
 name = "fastrand"

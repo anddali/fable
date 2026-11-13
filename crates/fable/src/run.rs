@@ -38,6 +38,19 @@ pub async fn run(config: BootstrapConfig, role: Option<RoleArg>) -> anyhow::Resu
     tracing::info!("migrations applied");
     let state = fable_api::AppState::new(pool, http_client()?);
 
+    // Every role uses scratch (uploads on api nodes, fetches on workers):
+    // sweep leftovers from a previous run before accepting any work (I-2).
+    // Held for the lifetime of `run`; role tasks get clones as they're wired.
+    let scratch = fable_worker::ScratchManager::open(&config.scratch)
+        .await
+        .with_context(|| format!("opening scratch dir {}", config.scratch.dir.display()))?
+        .0;
+    tracing::info!(
+        dir = %scratch.root().display(),
+        max_bytes = scratch.max_bytes(),
+        "scratch dir ready"
+    );
+
     let (stop_tx, stop_rx) = watch::channel(false);
     let mut tasks = tokio::task::JoinSet::new();
 

@@ -200,10 +200,15 @@ fn api_role_migrates_serves_healthz_and_stops_on_sigterm() {
 
     let port = free_port();
     let bind = format!("127.0.0.1:{port}");
+    let scratch = std::env::temp_dir().join(format!("fable-cli-test-{port}"));
+    std::fs::create_dir_all(&scratch).unwrap();
+    std::fs::write(scratch.join("leftover-from-crash"), b"stale").unwrap();
+    std::fs::write(scratch.join(".fable-scratch"), b"").unwrap();
     let mut server = KillOnDrop(
         StdCommand::new(assert_cmd::cargo::cargo_bin("fable"))
             .env("RAG_DATABASE_URL", &db)
             .env("RAG_HTTP__BIND", &bind)
+            .env("RAG_SCRATCH_DIR", &scratch)
             .args(["--role", "api"])
             .stdout(Stdio::null())
             .stderr(Stdio::null())
@@ -249,4 +254,8 @@ fn api_role_migrates_serves_healthz_and_stops_on_sigterm() {
         };
         assert!(status.success(), "unclean exit: {status}");
     }
+
+    // The startup sweep removed the leftover scratch file (I-2).
+    assert!(!scratch.join("leftover-from-crash").exists());
+    let _ = std::fs::remove_dir_all(&scratch);
 }
