@@ -10,7 +10,7 @@ pub mod config;
 pub mod role;
 pub mod secrets;
 
-pub use config::{BootstrapConfig, ConfigError};
+pub use config::{AuthMode, BootstrapConfig, ConfigError, Environment};
 pub use role::Role;
 pub use secrets::{
     CryptoError, EncryptedSecret, ExposeSecret, KeyVersion, Keyring, MasterKey, MasterKeyProvider,

@@ -102,15 +102,17 @@ impl MasterKey {
     pub fn from_base64(encoded: &str) -> Result<Self, CryptoError> {
         let encoded = encoded.trim();
         if encoded.is_empty() {
-            return Err(CryptoError::InvalidKey("empty"));
+            return Err(CryptoError::InvalidKey("it is empty"));
         }
         let decoded = [STANDARD, STANDARD_NO_PAD, URL_SAFE, URL_SAFE_NO_PAD]
             .iter()
             .find_map(|engine| engine.decode(encoded).ok())
             .map(Zeroizing::new)
-            .ok_or(CryptoError::InvalidKey("not valid base64"))?;
+            .ok_or(CryptoError::InvalidKey("it is not valid base64"))?;
         if decoded.len() != MASTER_KEY_LEN {
-            return Err(CryptoError::InvalidKey("must decode to exactly 32 bytes"));
+            return Err(CryptoError::InvalidKey(
+                "it must decode to exactly 32 bytes",
+            ));
         }
         let mut bytes = [0u8; MASTER_KEY_LEN];
         bytes.copy_from_slice(&decoded);
@@ -128,6 +130,11 @@ impl MasterKey {
         let out = Self::from_bytes(bytes);
         bytes.zeroize();
         out
+    }
+
+    /// The raw key bytes. Callers must not log or persist them.
+    pub fn expose_bytes(&self) -> &[u8; MASTER_KEY_LEN] {
+        &self.0
     }
 
     /// The key as standard padded base64, the `RAG_MASTER_KEY` format.
@@ -519,17 +526,17 @@ mod tests {
 
         assert_eq!(
             MasterKey::from_base64("").unwrap_err(),
-            CryptoError::InvalidKey("empty")
+            CryptoError::InvalidKey("it is empty")
         );
         assert_eq!(
             MasterKey::from_base64("not base64!!").unwrap_err(),
-            CryptoError::InvalidKey("not valid base64")
+            CryptoError::InvalidKey("it is not valid base64")
         );
         let short = STANDARD.encode([1u8; 16]);
         let err = MasterKey::from_base64(&short).unwrap_err();
         assert_eq!(
             err,
-            CryptoError::InvalidKey("must decode to exactly 32 bytes")
+            CryptoError::InvalidKey("it must decode to exactly 32 bytes")
         );
         assert!(!err.to_string().contains(&short));
     }

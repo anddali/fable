@@ -5,7 +5,6 @@ run without the docling models installed.
 """
 
 import base64
-import io
 import json
 import uuid
 from dataclasses import dataclass, field
@@ -154,15 +153,17 @@ async def test_openai_compat_vision_request_shape_and_optional_key(monkeypatch):
         seen["url"] = str(request.url)
         seen["auth"] = request.headers.get("authorization")
         seen["payload"] = json.loads(request.content)
-        return httpx.Response(
-            200, json={"choices": [{"message": {"content": " A bar chart. "}}]}
-        )
+        return httpx.Response(200, json={"choices": [{"message": {"content": " A bar chart. "}}]})
 
     _patch_async_client(monkeypatch, handler)
     monkeypatch.delenv("OLLAMA_API_KEY", raising=False)
 
     vision = OpenAICompatVision.from_config(
-        {"base_url": "http://localhost:11434/v1", "model": "gemma4:latest", "api_key_env": "OLLAMA_API_KEY"}
+        {
+            "base_url": "http://localhost:11434/v1",
+            "model": "gemma4:latest",
+            "api_key_env": "OLLAMA_API_KEY",
+        }
     )
     out = await vision.describe([(b"img", "image/png")])
 
@@ -206,9 +207,7 @@ async def test_anthropic_vision_request_shape(monkeypatch):
         seen["url"] = str(request.url)
         seen["headers"] = dict(request.headers)
         seen["payload"] = json.loads(request.content)
-        return httpx.Response(
-            200, json={"content": [{"type": "text", "text": "A flowchart."}]}
-        )
+        return httpx.Response(200, json={"content": [{"type": "text", "text": "A flowchart."}]})
 
     _patch_async_client(monkeypatch, handler)
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
@@ -282,9 +281,7 @@ def _fake_store_and_doc():
 
 async def test_describe_images_replaces_blocks_and_strips_bytes(monkeypatch):
     fake = FakeVision(["a system diagram"])
-    monkeypatch.setattr(
-        "rag_core.pipeline.indexer.plugins.create", lambda kind, name, config: fake
-    )
+    monkeypatch.setattr("rag_core.pipeline.indexer.plugins.create", lambda kind, name, config: fake)
     parsed = ParsedDocument(blocks=[Block(text="before"), _image_block(), Block(text="after")])
     pipeline = PipelineConfig(vision_llm=PluginRef(name="whatever"))
     store, doc = _fake_store_and_doc()
@@ -314,9 +311,7 @@ async def test_describe_images_drops_blocks_without_vision_plugin():
 
 async def test_describe_images_drops_empty_descriptions(monkeypatch):
     fake = FakeVision(["  "])
-    monkeypatch.setattr(
-        "rag_core.pipeline.indexer.plugins.create", lambda kind, name, config: fake
-    )
+    monkeypatch.setattr("rag_core.pipeline.indexer.plugins.create", lambda kind, name, config: fake)
     parsed = ParsedDocument(blocks=[_image_block()])
     store, doc = _fake_store_and_doc()
     result = await _describe_images(
