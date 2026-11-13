@@ -35,10 +35,7 @@ async def _live_keys() -> set[str]:
 
         figures = await session.execute(select(Chunk.chunk_metadata))
         keys.update(
-            f["key"]
-            for (meta,) in figures
-            for f in (meta or {}).get("figures", [])
-            if f.get("key")
+            f["key"] for (meta,) in figures for f in (meta or {}).get("figures", []) if f.get("key")
         )
 
         # Only non-deleted uploads are live; a deleted item's staging blob is an

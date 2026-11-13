@@ -67,7 +67,7 @@ def _table_blocks(item: Any, meta: dict[str, Any]) -> list[Block]:
         return [Block(type="table_row", text=" | ".join(filter(None, header)), metadata=dict(meta))]
     blocks = []
     for row in body:
-        pairs = [f"{h}: {v}" if h else v for h, v in zip(header, row) if v]
+        pairs = [f"{h}: {v}" if h else v for h, v in zip(header, row, strict=False) if v]
         if pairs:
             blocks.append(Block(type="table_row", text=" | ".join(pairs), metadata=dict(meta)))
     return blocks

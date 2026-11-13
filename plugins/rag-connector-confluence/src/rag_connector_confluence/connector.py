@@ -214,9 +214,7 @@ class ConfluenceConnector(ConnectorPlugin):
             },
         )
 
-    async def _inline_images(
-        self, client: httpx.AsyncClient, page_id: str, body_html: str
-    ) -> str:
+    async def _inline_images(self, client: httpx.AsyncClient, page_id: str, body_html: str) -> str:
         """Replace attachment image macros with data-URI ``<img>`` tags.
 
         Storage format embeds images as ``<ac:image><ri:attachment
