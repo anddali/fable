@@ -1,0 +1,16 @@
+# Shared by the root (Rust) Dockerfile and legacy/Dockerfile.python.
+.git
+.github
+.claude
+**/target
+**/node_modules
+ui/dist
+.venv
+.pytest_cache
+.ruff_cache
+.mypy_cache
+**/__pycache__
+*.log
+.env
+.env.*
+!.env.example
