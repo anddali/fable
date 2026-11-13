@@ -1,9 +1,10 @@
 //! Command-line interface (spec §2 D-1–D-3, D-5).
 
+use std::path::PathBuf;
 use std::time::Duration;
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
-use fable_core::Role;
+use fable_core::{Role, SecretString};
 
 /// Exit code of subcommands that are not implemented yet.
 pub const EXIT_NOT_IMPLEMENTED: u8 = 2;
@@ -35,7 +36,12 @@ pub enum Command {
     /// Run a retrieval evaluation.
     Eval,
     /// Re-encrypt stored secrets with a new master key.
-    RotateMasterKey,
+    ///
+    /// Reads the current key from RAG_MASTER_KEY (in `dev` without it, the
+    /// stored development key), re-encrypts every secret under the new key
+    /// in one transaction, then exits. Afterwards set RAG_MASTER_KEY to the
+    /// new key and restart every replica.
+    RotateMasterKey(RotateMasterKeyArgs),
 }
 
 impl Command {
@@ -46,7 +52,7 @@ impl Command {
             Command::Healthcheck(_) => "healthcheck",
             Command::ParseWorker => "parse-worker",
             Command::Eval => "eval",
-            Command::RotateMasterKey => "rotate-master-key",
+            Command::RotateMasterKey(_) => "rotate-master-key",
         }
     }
 }
@@ -67,6 +73,25 @@ impl HealthcheckArgs {
     pub fn timeout(&self) -> Duration {
         Duration::from_secs(self.timeout_secs)
     }
+}
+
+/// Options for `fable rotate-master-key`.
+#[derive(Debug, Args)]
+#[group(id = "new_key_source", required = true, multiple = false)]
+pub struct RotateMasterKeyArgs {
+    /// The new master key: 32 random bytes, base64 (`openssl rand -base64
+    /// 32`). Visible in the process list; prefer --new-key-file.
+    #[arg(long, value_name = "BASE64", value_parser = parse_secret, group = "new_key_source")]
+    pub new_key: Option<SecretString>,
+
+    /// Read the new master key (base64) from this file.
+    #[arg(long, value_name = "PATH", group = "new_key_source")]
+    pub new_key_file: Option<PathBuf>,
+}
+
+/// Wrap a key argument straight away so `Debug` of the parsed CLI redacts it.
+fn parse_secret(s: &str) -> Result<SecretString, std::convert::Infallible> {
+    Ok(SecretString::from(s))
 }
 
 /// CLI mirror of [`Role`] (kept separate so `fable-core` has no clap dependency).
@@ -110,10 +135,44 @@ mod tests {
             ("healthcheck", "healthcheck"),
             ("parse-worker", "parse-worker"),
             ("eval", "eval"),
-            ("rotate-master-key", "rotate-master-key"),
         ] {
             let cli = Cli::try_parse_from(["fable", arg]).unwrap();
             assert_eq!(cli.command.unwrap().name(), name);
         }
+    }
+
+    #[test]
+    fn rotate_master_key_needs_exactly_one_key_source() {
+        assert!(Cli::try_parse_from(["fable", "rotate-master-key"]).is_err());
+        assert!(Cli::try_parse_from([
+            "fable",
+            "rotate-master-key",
+            "--new-key",
+            "a",
+            "--new-key-file",
+            "/k"
+        ])
+        .is_err());
+
+        let cli = Cli::try_parse_from([
+            "fable",
+            "rotate-master-key",
+            "--new-key",
+            "c2VjcmV0LWtleQ==",
+        ])
+        .unwrap();
+        let dump = format!("{cli:?}");
+        assert!(!dump.contains("c2VjcmV0LWtleQ"), "{dump}");
+        let Some(Command::RotateMasterKey(args)) = cli.command else {
+            panic!("expected rotate-master-key");
+        };
+        assert_eq!(
+            fable_core::ExposeSecret::expose_secret(args.new_key.as_ref().unwrap()),
+            "c2VjcmV0LWtleQ=="
+        );
+
+        let cli =
+            Cli::try_parse_from(["fable", "rotate-master-key", "--new-key-file", "/k"]).unwrap();
+        assert_eq!(cli.command.unwrap().name(), "rotate-master-key");
     }
 }

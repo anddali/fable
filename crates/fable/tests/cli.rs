@@ -107,7 +107,7 @@ fn rejects_bad_log_level() {
 
 #[test]
 fn stub_subcommands_exit_not_implemented() {
-    for sub in ["parse-worker", "eval", "rotate-master-key"] {
+    for sub in ["parse-worker", "eval"] {
         fable()
             .arg(sub)
             .assert()
@@ -258,4 +258,149 @@ fn api_role_migrates_serves_healthz_and_stops_on_sigterm() {
     // The startup sweep removed the leftover scratch file (I-2).
     assert!(!scratch.join("leftover-from-crash").exists());
     let _ = std::fs::remove_dir_all(&scratch);
+}
+
+/// A fresh database for one test (dropped by the caller); `None` without
+/// `DATABASE_URL`.
+fn fresh_database(tag: &str) -> Option<(String, String)> {
+    use sqlx::ConnectOptions;
+    let base = std::env::var("DATABASE_URL").ok()?;
+    let name = format!("fable_cli_{tag}_{}", std::process::id());
+    let admin: sqlx::postgres::PgConnectOptions = base.parse().unwrap();
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    rt.block_on(async {
+        let mut conn = admin.connect().await.unwrap();
+        sqlx::query(&format!("DROP DATABASE IF EXISTS {name} WITH (FORCE)"))
+            .execute(&mut conn)
+            .await
+            .unwrap();
+        sqlx::query(&format!("CREATE DATABASE {name}"))
+            .execute(&mut conn)
+            .await
+            .unwrap();
+    });
+    let url = admin.database(&name).to_url_lossy().to_string();
+    Some((name, url))
+}
+
+fn drop_database(name: &str) {
+    use sqlx::{ConnectOptions, Connection};
+    let admin: sqlx::postgres::PgConnectOptions =
+        std::env::var("DATABASE_URL").unwrap().parse().unwrap();
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    rt.block_on(async {
+        let mut conn = admin.connect().await.unwrap();
+        sqlx::query(&format!("DROP DATABASE IF EXISTS {name} WITH (FORCE)"))
+            .execute(&mut conn)
+            .await
+            .unwrap();
+        conn.close().await.ok();
+    });
+}
+
+const OLD_KEY: &str = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=";
+const NEW_KEY: &str = "Hx4dHBsaGRgXFhUUExIREA8ODQwLCgkIBwYFBAMCAQA=";
+
+/// Rotation through the binary, then startup with the old key fails with a
+/// clear message. Needs `DATABASE_URL`; skipped otherwise.
+#[test]
+fn rotate_master_key_then_old_key_fails_startup() {
+    let Some((name, db)) = fresh_database("rotate") else {
+        eprintln!("DATABASE_URL not set; skipping");
+        return;
+    };
+    let dir = std::env::temp_dir().join(format!("fable-rotate-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let key_file = dir.join("new.key");
+    std::fs::write(&key_file, format!("{NEW_KEY}\n")).unwrap();
+
+    let env = |cmd: &mut Command, key: &str| {
+        cmd.env("RAG_ENVIRONMENT", "staging")
+            .env("RAG_DATABASE_URL", &db)
+            .env("RAG_MASTER_KEY", key)
+            .env("RAG_SCRATCH_DIR", &dir)
+            .env("RAG_HTTP__BIND", format!("127.0.0.1:{}", free_port()));
+    };
+
+    fable()
+        .env("RAG_DATABASE_URL", &db)
+        .arg("migrate")
+        .assert()
+        .success();
+    // A secret sealed with the old key (version 1), as the portal would store.
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    rt.block_on(async {
+        let pool = sqlx::PgPool::connect(&db).await.unwrap();
+        let cipher = fable_core::SecretCipher::single(
+            fable_core::KeyVersion(1),
+            fable_core::MasterKey::from_base64(OLD_KEY).unwrap(),
+        );
+        let sealed = cipher
+            .encrypt(&fable_core::SecretString::from("token"))
+            .unwrap();
+        sqlx::query(
+            "INSERT INTO connections (kind, name, secret_ciphertext, secret_nonce, key_version) \
+             VALUES ('confluence', 'c', $1, $2, 1)",
+        )
+        .bind(&sealed.ciphertext)
+        .bind(&sealed.nonce)
+        .execute(&pool)
+        .await
+        .unwrap();
+        pool.close().await;
+    });
+
+    // An invalid new key is rejected without echoing it.
+    let mut cmd = fable();
+    env(&mut cmd, OLD_KEY);
+    cmd.args(["rotate-master-key", "--new-key", "c2hvcnQ="])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("new master key"))
+        .stderr(predicate::str::contains("c2hvcnQ=").not());
+
+    let mut cmd = fable();
+    env(&mut cmd, OLD_KEY);
+    cmd.arg("rotate-master-key")
+        .arg("--new-key-file")
+        .arg(&key_file)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(
+            "Re-encrypted 1 secret(s); master key version 1 -> 2",
+        ))
+        .stdout(predicate::str::contains(NEW_KEY).not())
+        .stderr(predicate::str::contains(NEW_KEY).not())
+        .stderr(predicate::str::contains(OLD_KEY).not());
+
+    // Rotating again from the old key is refused: it no longer matches.
+    let mut cmd = fable();
+    env(&mut cmd, OLD_KEY);
+    cmd.args(["rotate-master-key", "--new-key", NEW_KEY])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("RAG_MASTER_KEY does not match"));
+
+    let mut cmd = fable();
+    env(&mut cmd, OLD_KEY);
+    cmd.args(["--role", "api"])
+        .timeout(Duration::from_secs(60))
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(
+            "RAG_MASTER_KEY does not match the master key (version 2)",
+        ))
+        .stderr(predicate::str::contains(OLD_KEY).not());
+
+    let _ = std::fs::remove_dir_all(&dir);
+    drop_database(&name);
 }

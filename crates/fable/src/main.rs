@@ -5,6 +5,7 @@
 
 mod cli;
 mod healthcheck;
+mod master_key;
 mod run;
 
 // Link the connector crates enabled by Cargo features so their plugin
@@ -74,7 +75,10 @@ fn real_main(cli: Cli, config: BootstrapConfig) -> anyhow::Result<ExitCode> {
         Some(Command::Healthcheck(args)) => {
             return Ok(runtime.block_on(healthcheck::healthcheck(&config, &args)));
         }
-        Some(cmd @ (Command::ParseWorker | Command::Eval | Command::RotateMasterKey)) => {
+        Some(Command::RotateMasterKey(args)) => {
+            runtime.block_on(master_key::rotate(&config, &args))?
+        }
+        Some(cmd @ (Command::ParseWorker | Command::Eval)) => {
             eprintln!("fable {}: not implemented yet", cmd.name());
             return Ok(ExitCode::from(cli::EXIT_NOT_IMPLEMENTED));
         }
@@ -99,14 +103,6 @@ fn log_config_warnings(config: &BootstrapConfig) {
         tracing::warn!(
             environment = %config.environment,
             "RAG_AUTH__MODE=disabled: every request runs as the local dev principal; never use this outside development"
-        );
-    }
-    if config.master_key.is_none() {
-        // Only reachable in `dev` (C-7); the DB-stored dev key is managed by
-        // the secrets module.
-        tracing::warn!(
-            environment = %config.environment,
-            "RAG_MASTER_KEY is not set: a generated development key stored in the database will encrypt secrets; set RAG_MASTER_KEY for any non-dev deployment"
         );
     }
 }

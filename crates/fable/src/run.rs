@@ -37,7 +37,10 @@ pub async fn run(config: BootstrapConfig, role: Option<RoleArg>) -> anyhow::Resu
     let pool = fable_db::connect(config.require_database_url()?).await?;
     fable_db::migrate(&pool).await?;
     tracing::info!("migrations applied");
-    let state = fable_api::AppState::new(pool, http_client()?);
+    // A missing or wrong master key while secrets exist stops startup here
+    // (C-7), before any role could touch a secret.
+    let secrets = crate::master_key::resolve(&config, &pool).await?;
+    let state = fable_api::AppState::new(pool, http_client()?, secrets);
 
     // Every role uses scratch (uploads on api nodes, fetches on workers):
     // sweep leftovers from a previous run before accepting any work (I-2).

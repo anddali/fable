@@ -611,7 +611,8 @@ async fn bytea_only_where_the_spec_allows_it() {
         return;
     };
     // §6: no source bytes are persisted. The only binary columns are the
-    // optional figure images and sealed connection secrets.
+    // optional figure images, sealed connection secrets and the master key
+    // check value / dev-only generated key (FAB-41).
     let cols: Vec<String> = sqlx::query_scalar(
         "SELECT table_name || '.' || column_name FROM information_schema.columns \
          WHERE table_schema = current_schema() AND data_type = 'bytea' \
@@ -626,7 +627,10 @@ async fn bytea_only_where_the_spec_allows_it() {
         vec![
             "connections.secret_ciphertext",
             "connections.secret_nonce",
-            "figures.data"
+            "figures.data",
+            "master_key_state.check_ciphertext",
+            "master_key_state.check_nonce",
+            "master_key_state.dev_key",
         ]
     );
     db.drop_db().await;

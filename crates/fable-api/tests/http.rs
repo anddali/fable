@@ -16,7 +16,14 @@ fn unreachable_db_state() -> AppState {
         .acquire_timeout(Duration::from_millis(500))
         .connect_lazy("postgres://u:p@127.0.0.1:1/none")
         .unwrap();
-    AppState::new(db, reqwest::Client::new())
+    AppState::new(db, reqwest::Client::new(), test_cipher())
+}
+
+fn test_cipher() -> fable_core::SecretCipher {
+    fable_core::SecretCipher::single(
+        fable_core::KeyVersion::INITIAL,
+        fable_core::MasterKey::generate(),
+    )
 }
 
 fn app(state: AppState) -> Router {
@@ -69,7 +76,7 @@ async fn readyz_is_ok_when_db_answers() {
     };
     let db = PgPoolOptions::new().connect_lazy(&url).unwrap();
     let (status, _, json) = get(
-        app(AppState::new(db, reqwest::Client::new())),
+        app(AppState::new(db, reqwest::Client::new(), test_cipher())),
         Request::get("/readyz").body(Body::empty()).unwrap(),
     )
     .await;

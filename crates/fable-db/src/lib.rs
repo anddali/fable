@@ -2,6 +2,8 @@
 
 #![forbid(unsafe_code)]
 
+pub mod master_key;
+
 use std::time::Duration;
 
 use sqlx::migrate::Migrator;
