@@ -10,6 +10,7 @@ use tokio::net::TcpListener;
 use utoipa::openapi::OpenApi;
 use utoipa_axum::router::OpenApiRouter;
 
+pub mod auth;
 pub mod request_id;
 pub mod routes;
 pub mod state;
