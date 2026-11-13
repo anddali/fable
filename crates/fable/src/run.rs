@@ -11,8 +11,18 @@ use crate::cli::RoleArg;
 pub async fn migrate(config: &BootstrapConfig) -> anyhow::Result<()> {
     let url = config.require_database_url()?;
     let pool = fable_db::connect(url).await?;
-    fable_db::migrate(&pool).await?;
-    tracing::info!("migrations applied");
+    let report = fable_db::migrate(&pool)
+        .await
+        .context("running database migrations")?;
+    if report.applied.is_empty() {
+        tracing::info!(
+            waited_for_lock = report.waited_for_lock,
+            "database schema is up to date"
+        );
+    } else {
+        tracing::info!(count = report.applied.len(), "migrations applied");
+    }
+    pool.close().await;
     Ok(())
 }
 
@@ -23,7 +33,10 @@ pub async fn run(config: BootstrapConfig, role: Option<RoleArg>) -> anyhow::Resu
     tracing::info!(%role, "starting fable");
 
     // Startup migrations are advisory-locked, so replicas may race safely.
-    migrate(&config).await?;
+    let pool = fable_db::connect(config.require_database_url()?).await?;
+    fable_db::migrate(&pool).await?;
+    tracing::info!("migrations applied");
+    let state = fable_api::AppState::new(pool, http_client()?);
 
     let (stop_tx, stop_rx) = watch::channel(false);
     let mut tasks = tokio::task::JoinSet::new();
@@ -36,7 +49,7 @@ pub async fn run(config: BootstrapConfig, role: Option<RoleArg>) -> anyhow::Resu
         tracing::info!(%bind, "HTTP listening");
         let mut rx = stop_rx.clone();
         tasks.spawn(async move {
-            fable_api::serve(listener, async move {
+            fable_api::serve(listener, state, async move {
                 let _ = rx.wait_for(|stop| *stop).await;
             })
             .await
@@ -70,6 +83,15 @@ pub async fn run(config: BootstrapConfig, role: Option<RoleArg>) -> anyhow::Resu
     }
     tracing::info!("stopped");
     Ok(())
+}
+
+/// The process-wide outbound HTTP client, shared through `AppState`.
+fn http_client() -> anyhow::Result<reqwest::Client> {
+    reqwest::Client::builder()
+        .user_agent(concat!("fable/", env!("CARGO_PKG_VERSION")))
+        .connect_timeout(std::time::Duration::from_secs(10))
+        .build()
+        .context("building HTTP client")
 }
 
 async fn shutdown_signal() {

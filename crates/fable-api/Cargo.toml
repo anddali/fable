@@ -8,14 +8,20 @@ publish.workspace = true
 
 [dependencies]
 axum.workspace = true
+reqwest.workspace = true
 serde.workspace = true
+sqlx.workspace = true
 tokio.workspace = true
+tracing.workspace = true
+uuid.workspace = true
 utoipa.workspace = true
 utoipa-axum.workspace = true
 
 [dev-dependencies]
+fable-core.workspace = true
 serde_json.workspace = true
-tower = { version = "0.5", features = ["util"] }
+tower = { workspace = true, features = ["util"] }
+tracing-subscriber.workspace = true
 http-body-util = "0.1"
 
 [lints]
