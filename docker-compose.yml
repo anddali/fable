@@ -1,0 +1,76 @@
+# Fable: Postgres + the single `fable` binary (spec §2, D-7/D-8).
+#
+#   docker compose up --build        # API, /mcp and portal on http://localhost:8000
+#
+# `app` runs all roles by default (API + workers, migrations on boot under an
+# advisory lock, D-1/D-3), so there is no separate migrate or worker service.
+# The app container is stateless: Postgres is the only state and `db` owns the
+# only volume. Scratch space (RAG_SCRATCH_DIR, default /tmp/fable) lives on the
+# container filesystem and may be lost on any restart without losing indexed
+# data (D-8). Connections, models and credentials are configured in the portal
+# and stored encrypted in the DB; only bootstrap settings are passed as env (§4).
+#
+# Variables below are read from the shell or a `.env` file next to this file.
+# The legacy Python stack lives in legacy/docker-compose.python.yml until FAB-139.
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: rag
+      POSTGRES_PASSWORD: rag
+      POSTGRES_DB: rag
+    ports:
+      - "${RAG_DB_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rag -d rag"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build:
+      context: .
+    image: fable:local
+    restart: unless-stopped
+    environment:
+      RAG_DATABASE_URL: postgres://rag:rag@db:5432/rag
+      # dev: allows auth disabled and an auto-generated master key stored in
+      # the DB (C-6/C-7). Outside dev, RAG_MASTER_KEY is required
+      # (`openssl rand -base64 32`).
+      RAG_ENVIRONMENT: ${RAG_ENVIRONMENT:-dev}
+      RAG_MASTER_KEY: ${RAG_MASTER_KEY:-}
+      RAG_LOG_LEVEL: ${RAG_LOG_LEVEL:-info}
+      RAG_ROLE: ${RAG_ROLE:-all}
+      RAG_SCRATCH_DIR: ${RAG_SCRATCH_DIR:-/tmp/fable}
+      RAG_SCRATCH_MAX_BYTES: ${RAG_SCRATCH_MAX_BYTES:-10737418240}
+      RAG_AUTH__MODE: ${RAG_AUTH__MODE:-disabled}
+      RAG_AUTH__TENANT_ID: ${RAG_AUTH__TENANT_ID:-}
+      RAG_AUTH__AUDIENCE: ${RAG_AUTH__AUDIENCE:-}
+      RAG_AUTH__SPA_CLIENT_ID: ${RAG_AUTH__SPA_CLIENT_ID:-}
+      RAG_AUTH__API_SCOPE: ${RAG_AUTH__API_SCOPE:-}
+      RAG_AUTH__DEFAULT_ROLE: ${RAG_AUTH__DEFAULT_ROLE:-user}
+    ports:
+      - "${RAG_API_PORT:-8000}:8000"
+    # No volumes: the container is stateless. To keep scratch in memory
+    # instead of the container filesystem, add e.g.
+    #   tmpfs:
+    #     - /tmp/fable:size=2g,uid=1000,gid=1000
+    # and lower RAG_SCRATCH_MAX_BYTES to fit.
+    depends_on:
+      db:
+        condition: service_healthy
+    # Leave room for the worker drain (RAG_WORKER__SHUTDOWN_TIMEOUT_SECS,
+    # default 30 s) before SIGKILL (D-6).
+    stop_grace_period: 45s
+    healthcheck:
+      test: ["CMD", "fable", "healthcheck"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 5
+
+volumes:
+  pgdata:
