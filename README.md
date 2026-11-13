@@ -29,18 +29,23 @@ plugins/
   rag-connector-slack/
 migrations/      Alembic (schema) — procrastinate schema applied via `rag-apply-schema`
 tests/           unit tests (no database required)
+legacy/          Python Dockerfile + compose file (kept until the Rust cutover, FAB-139)
 ```
+
+The Rust rewrite (`Cargo.toml`, `crates/`, spec in `docs/RUST_REWRITE_REQUIREMENTS.md`)
+builds from the root `Dockerfile`: `docker build -t fable .`, or
+`docker buildx build --platform linux/amd64,linux/arm64 -t fable .`.
 
 ## Quickstart (local dev)
 
 ```sh
 # Everything in containers (db + migrations + api + worker), auth disabled, fake embedder:
-docker compose up --build
+docker compose -f legacy/docker-compose.python.yml up --build
 # API at http://localhost:8000/docs
 
 # Or natively (Postgres from compose only):
 uv sync
-docker compose up -d db
+docker compose -f legacy/docker-compose.python.yml up -d db
 uv run alembic upgrade head
 uv run rag-apply-schema
 uv run uvicorn rag_api.main:app --reload     # terminal 1
