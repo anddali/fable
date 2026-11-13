@@ -10,3 +10,7 @@ hash of database + schema) on a dedicated connection that is closed afterwards,
 so N replicas can start at once and a failed run never leaks the lock.
 A database that has migrations this binary does not know (newer build ran
 first) is rejected at startup.
+
+Per-embedding-space HNSW indexes are not migrations: they are created and
+dropped at runtime by `fable_db::create_space_index[_concurrently]` /
+`drop_space_index[_concurrently]` when a space is created or dropped (§7 M-3).
