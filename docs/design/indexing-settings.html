@@ -68,7 +68,7 @@
           </div>
           <div class="grid-2">
             <div class="field"><label class="label" for="v-min">Skip images smaller than</label><div class="input-group"><input class="input num" id="v-min" value="64"><span class="addon">px</span></div></div>
-            <div class="field"><span class="label">Keep figure images</span><div class="switch" role="switch" aria-checked="false" tabindex="0"><span class="track"></span>Show images in search results (~50 KB each)</div></div>
+            <div class="field"><span class="label">Keep figure images</span><div class="switch" role="switch" aria-checked="false" tabindex="0"><span class="track"></span>Show images in search results (~50 KB each)</div><span class="help">Applies to documents indexed from now on. No rebuild, nothing fetched again.</span></div>
           </div>
         </div>
       </section>
@@ -107,7 +107,7 @@
         </div>
         <div class="impact-row">
           <span class="pill" style="padding:0;width:28px;justify-content:center"><i data-icon="check"></i></span>
-          <div class="muted"><strong>No re-fetch from sources</strong><div class="xs">Only a parser change would need one (and upload sources would need files re-uploaded).</div></div>
+          <div class="muted"><strong>No re-fetch from sources</strong><div class="xs">Only parser, clean-up or vision changes need one; upload documents would then be marked “Re-upload required”. Keep figure images never triggers a rebuild.</div></div>
           <span></span>
         </div>
       </div>

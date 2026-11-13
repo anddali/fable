@@ -45,9 +45,43 @@ Runbooks, ADRs… · Owner Dana Kowalski · Visible to everyone
 | Tab | Content | Key actions |
 |---|---|---|
 | Sources | Table: source, kind and target, connection (with health pill), documents, last sync (+added ~changed −removed), next run, enabled toggle | Add source ([flow 4](04-confluence-paste-a-link.md)), Edit, Sync, Force resync…, Disable, Delete |
-| Documents | Paged table (UX-11): title, source, status (indexed/pending/failed with error tooltip), chunks, updated, indexed; filters for status, source and type; `q` on title | Bulk retry failed, Reindex; the document drawer shows metadata, error, and a paged chunk viewer (`from_ordinal`), with each chunk's heading path and context line shown separately |
+| Documents | Paged table (UX-11): title, source, status (indexed / pending / failed with error tooltip / **re-upload required**), chunks, updated, indexed; filters for status (incl. *Re-upload required*), source and type; `q` on title | Bulk retry failed, Reindex, **Re-upload…** (see below); the document drawer shows metadata, error, and a paged chunk viewer (`from_ordinal`), with each chunk's heading path and context line shown separately |
 | Syncs | `sync_runs` history per source: started, duration, listed/added/changed/removed/failed, outcome | Open run details, Retry |
 | Indexing settings | See [flow 7](07-indexing-settings.md) | Save and rebuild |
 | Access | Owner, editors and readers (users and Entra groups) with typeahead; "Visible to everyone" toggle | Add, change role, remove; audited |
 | Evaluation | See [flow 10](10-evaluation.md) | Run, compare |
 | Feedback | Paged list of chat feedback for this collection (E-6): rating, comment, question, answer excerpt, retrieved chunks, date; filter 👍/👎/has comment | "Add to evaluation set" turns a 👎 into a golden item in one click |
+
+## Documents tab: re-upload required
+
+Upload sources can't be re-fetched (ST-5, FAB-140). After a change that needs a **re-parse** (parser,
+transformers or vision settings, see [flow 7](07-indexing-settings.md)), Fable re-parses connector
+documents from their sources. Upload documents get the status **Re-upload required** instead of being left
+silently stale. Chunk-size and context-line changes never cause this; they rebuild from stored chunks.
+
+```
+[All 1,486] [Indexed] [Pending] [Failed 3] [Re-upload required 212]      ← status filter (saved views)
+┌ ⚠ 212 uploaded documents were indexed with the previous parser settings. They still appear in search
+│   with their old chunks. Upload them again to apply the new settings.        [Re-upload files…] ┐
+│ ☐ Title                 │ Source         │ Status                 │ Chunks │ Uploaded   │   ⋯ │
+│ ☐ Q3-architecture.pdf   │ Design uploads │ ⇪ Re-upload required   │ 41     │ 2026-09-02 │   ⋯ │
+│ ☐ vendor-contract.docx  │ Design uploads │ ⇪ Re-upload required   │ 18     │ 2026-08-11 │   ⋯ │
+```
+
+* **Status pill**: warning tone, upload icon, label "Re-upload required". The tooltip names the change that
+  caused it ("Parser changed by Dana Kowalski on 12 Nov"). It is a document status, so it also appears in
+  the document drawer, in the collection Overview counts ("212 need re-upload") and in the "Needs
+  attention" saved view of the collections list ([flow 5](05-collections-list.md)).
+* **Filter**: `status=reupload_required` is a value of the Documents status filter, with its own count.
+  The callout above the table appears whenever the count is non-zero, on any filter.
+* **Search behaviour**: these documents keep serving their previous chunks (R-2, PS-4) until replaced.
+* **Re-upload action**: "Re-upload files…" (callout, bulk action on selected rows, and the row menu for
+  one document) opens the upload drawer for the document's upload source, listing the expected file
+  names. Uploaded files are matched by file name to the existing documents and replace them in place,
+  which re-parses with the current settings and clears the status. Files that don't match are offered as
+  new documents. The drawer shows "n of 212 matched".
+* **Dismiss instead**: owners and editors can bulk **Delete** documents they no longer need. There is no
+  "keep stale and clear the flag" action, because the point of the status is to avoid silently stale
+  chunks.
+* The impact preview ([flow 7](07-indexing-settings.md)) states the number of upload documents that will
+  get this status before the change is saved.

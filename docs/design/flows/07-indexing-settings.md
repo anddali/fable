@@ -46,10 +46,14 @@ spend, whether sources are re-fetched), with no risk to search while it rebuilds
   | chunk max/min, heading path | Re-chunk *n docs* (+ re-embed, + re-context if on) | no |
   | context on / model / prompt / scope / window | Re-context *n chunks* + re-embed | no |
   | context off | Clear context + re-embed | no |
-  | vision model / prompt / min px / max images, keep figures | Re-parse *n docs* (force resync) | **yes**, and upload sources need re-upload: "*3 upload sources (212 files) can't be re-parsed without re-uploading*" |
+  | vision model / prompt / min px / max images | Re-parse *n docs* (force resync) | **yes**, and upload sources need re-upload: "*3 upload sources (212 files) can't be re-parsed without re-uploading*". Those documents keep serving their current chunks and are marked **Re-upload required** ([flow 6](06-collection-detail.md#documents-tab-re-upload-required), ST-5) |
+  | keep figures (on or off) | **None**: no rebuild job, nothing in the preview's step list | **no**. The panel shows an info row: "*Applies to documents indexed from now on. Existing documents get figure images the next time they change.*" (FAB-141) |
   | parser / transformers | Re-parse | **yes** (same warning) |
   | full-text language | Rebuild full-text index | no, no LLM cost |
 
+* **Keep figure images** never triggers a rebuild or a fetch (FAB-141). It takes effect for documents indexed
+  after the save, so its help text says so next to the toggle. Saving a change that touches only this
+  setting shows the button label **Save** (not "Save and rebuild").
 * **Cost** (CR-8) appears only when the model has a price configured. Otherwise the panel shows "Cost
   unknown. Set a price on the model to see estimates" with a link for admins.
 * **CH-3 guard**: if `max_chars` plus the context line could exceed the embedding model's input limit,

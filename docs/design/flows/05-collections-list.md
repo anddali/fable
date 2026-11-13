@@ -33,9 +33,9 @@ Collections you can read. Admins see every collection under Admin → Collection
 * The data comes from `GET /collections?limit=25&cursor=…&sort=name&q=…&status=…&role=…&owner=…&connector=…`.
   The response includes `total` and per-row status aggregates (counts only, no document lists).
 * **Status** is derived on the server: *Healthy*, *Indexing n%* (any sync or rebuild running), *n failed
-  docs*, *Sync failed* (last sync errored), *Empty* (no sources), *Connection needs attention*.
-* **Saved views** are preset filters. "Needs attention" combines failed docs, failed syncs and
-  connection problems.
+  docs*, *Sync failed* (last sync errored), *Empty* (no sources), *Connection needs attention*, *n need re-upload* (upload documents after a re-parse-triggering change, ST-5).
+* **Saved views** are preset filters. "Needs attention" combines failed docs, failed syncs,
+  connection problems and documents that need re-upload.
 * **Bulk actions** are limited to what every selected row allows (role-aware). Actions the role doesn't
   allow are disabled with a tooltip ("You're a reader in 1 selected collection"). They run as a job, and
   progress shows in a toast.
