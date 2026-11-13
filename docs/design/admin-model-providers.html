@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin · Model providers · Fable (mockup)</title>
+<link rel="stylesheet" href="assets/fable.css">
+<script src="assets/shell.js"></script>
+</head>
+<body data-nav="a-providers" data-crumbs="Admin|Model providers">
+<main class="page">
+  <div class="page-head">
+    <div>
+      <h1>Model providers</h1>
+      <p class="lede">How Fable reaches your LLM services. Assign models to jobs under <a href="admin-model-roles.html">Model roles</a>.</p>
+    </div>
+    <div class="spacer"></div>
+    <button class="btn btn-primary" type="button"><i data-icon="plus"></i>Add provider</button>
+  </div>
+
+  <div class="table-wrap">
+    <div class="toolbar">
+      <div class="input-group search"><span class="addon"><i data-icon="search"></i></span><input class="input" aria-label="Filter providers" placeholder="Filter by name"></div>
+      <button class="filter-btn" type="button"><i data-icon="plus"></i>Kind</button>
+      <button class="filter-btn" type="button"><i data-icon="plus"></i>Status</button>
+      <div class="spacer"></div>
+      <span class="small muted">4 providers</span>
+    </div>
+    <table class="data">
+      <thead><tr>
+        <th aria-sort="ascending"><span class="sort">Name <i data-icon="sortdown"></i></span></th>
+        <th>Kind</th><th>Used by</th><th>Models</th><th>Last test</th><th class="right">Calls · 7 d</th><th class="actions"><span class="sr-only">Actions</span></th>
+      </tr></thead>
+      <tbody>
+        <tr>
+          <td><a class="cell-title" href="#">Anthropic</a><div class="xs muted">Key ••••8fQa · updated 12 days ago</div></td>
+          <td><span class="logo" style="width:24px;height:24px;font-size:10px;display:inline-grid;vertical-align:middle">An</span> Anthropic</td>
+          <td><span class="pill pill-outline">Context line</span></td>
+          <td class="num">9</td>
+          <td><span class="pill pill-ok"><i data-icon="check"></i>OK · 2 h ago</span></td>
+          <td class="right num">214,880</td>
+          <td class="actions"><button class="btn btn-ghost btn-sm btn-icon" aria-label="Actions for Anthropic"><i data-icon="more"></i></button></td>
+        </tr>
+        <tr class="selected">
+          <td><a class="cell-title" href="#">Local Ollama</a><div class="xs muted">http://ollama:11434 · no key</div></td>
+          <td><span class="logo" style="width:24px;height:24px;font-size:10px;display:inline-grid;vertical-align:middle">Ol</span> Ollama</td>
+          <td><span class="pill pill-outline">Vision</span> <span class="pill pill-outline">2 collections</span></td>
+          <td class="num">6</td>
+          <td><span class="pill pill-warn"><i data-icon="alert"></i>Slow · 2.4 s</span></td>
+          <td class="right num">8,310</td>
+          <td class="actions"><button class="btn btn-ghost btn-sm btn-icon" aria-label="Actions for Local Ollama"><i data-icon="more"></i></button></td>
+        </tr>
+        <tr>
+          <td><a class="cell-title" href="#">OpenAI</a><div class="xs muted">Key ••••x4Rt · updated 3 days ago</div></td>
+          <td><span class="logo" style="width:24px;height:24px;font-size:10px;display:inline-grid;vertical-align:middle">OA</span> OpenAI</td>
+          <td><span class="pill pill-outline">Embedding</span> <span class="pill pill-outline">Chat</span></td>
+          <td class="num">87</td>
+          <td><span class="pill pill-ok"><i data-icon="check"></i>OK · 5 min ago</span></td>
+          <td class="right num">1,902,117</td>
+          <td class="actions"><button class="btn btn-ghost btn-sm btn-icon" aria-label="Actions for OpenAI"><i data-icon="more"></i></button></td>
+        </tr>
+        <tr>
+          <td><a class="cell-title" href="#">LiteLLM gateway</a><div class="xs muted">https://llm.acme.internal · disabled</div></td>
+          <td><span class="logo" style="width:24px;height:24px;font-size:10px;display:inline-grid;vertical-align:middle">LL</span> LiteLLM</td>
+          <td class="muted">Not used</td>
+          <td class="num">—</td>
+          <td><span class="pill pill-danger"><i data-icon="error"></i>401 Unauthorized</span></td>
+          <td class="right num">0</td>
+          <td class="actions"><button class="btn btn-ghost btn-sm btn-icon" aria-label="Actions for LiteLLM gateway"><i data-icon="more"></i></button></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</main>
+
+<div class="scrim" aria-hidden="true"></div>
+<aside class="drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
+  <div class="drawer-head">
+    <span class="logo">Ol</span>
+    <div><h2 id="drawer-title" style="font-size:18px">Local Ollama</h2><div class="xs muted">Ollama · created by Dana Kowalski</div></div>
+    <div class="spacer"></div>
+    <button class="btn btn-ghost btn-icon" aria-label="Close"><i data-icon="x"></i></button>
+  </div>
+  <div class="drawer-body">
+    <div class="field"><label class="label" for="d-name">Name</label><input class="input" id="d-name" value="Local Ollama"></div>
+    <div class="field"><label class="label" for="d-url">Base URL</label><input class="input mono" id="d-url" value="http://ollama:11434"><span class="help">Example: http://localhost:11434</span></div>
+    <div class="field">
+      <span class="label">Bearer token <span class="opt">optional, for a proxied instance</span></span>
+      <div class="secret"><i data-icon="lock"></i><span class="muted">Not set</span><span class="spacer"></span><button class="btn btn-sm" type="button">Set token</button></div>
+    </div>
+    <div class="field">
+      <label class="label" for="d-usable">Usable by</label>
+      <select class="select" id="d-usable"><option>Admins only</option></select>
+      <span class="help">Who may pick this provider for a collection’s Vision or Context line override.</span>
+    </div>
+
+    <div class="callout callout-warn" role="status">
+      <i data-icon="alert"></i>
+      <div><strong>Reachable but slow.</strong> /api/tags answered in 2.4 s. Indexing will still work; vision calls may queue.</div>
+    </div>
+
+    <div>
+      <div class="row" style="margin-bottom:var(--sp-2)"><h3 style="font-size:14px">Discovered models</h3><span class="spacer"></span><span class="xs muted">cached 4 min ago</span><button class="btn btn-sm btn-ghost" type="button"><i data-icon="refresh"></i>Refresh</button></div>
+      <div class="table-wrap" style="box-shadow:none">
+        <table class="data">
+          <thead><tr><th>Model</th><th>Capabilities</th><th class="right">Context</th><th class="right">Price / 1M</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">llava:13b</td><td><span class="pill pill-info">vision</span> <span class="pill">chat</span></td><td class="right num">4k</td><td class="right muted">—</td></tr>
+            <tr><td class="mono">qwen2.5:7b-instruct</td><td><span class="pill">chat</span></td><td class="right num">32k</td><td class="right muted">—</td></tr>
+            <tr><td class="mono">nomic-embed-text</td><td><span class="pill pill-ok">embedding</span> <span class="xs muted">768 d</span></td><td class="right num">8k</td><td class="right muted">—</td></tr>
+            <tr><td class="mono">mxbai-embed-large</td><td><span class="pill pill-ok">embedding</span> <span class="xs muted">1024 d</span></td><td class="right num">512</td><td class="right muted">—</td></tr>
+            <tr><td class="mono">llama3.2-vision</td><td><span class="pill pill-info">vision</span> <span class="pill">chat</span></td><td class="right num">128k</td><td class="right muted">—</td></tr>
+            <tr><td class="mono">phi4-mini</td><td><span class="pill pill-outline">unknown</span></td><td class="right muted">—</td><td class="right muted">—</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <button class="btn btn-sm btn-ghost" type="button" style="margin-top:var(--sp-2)"><i data-icon="plus"></i>Add a model manually</button>
+    </div>
+
+    <div>
+      <h3 style="font-size:14px;margin-bottom:var(--sp-2)">Used by</h3>
+      <ul class="steps-list">
+        <li><i data-icon="sliders"></i>Vision role (platform default)</li>
+        <li><i data-icon="folder"></i><a href="#">Design system</a> · Vision override</li>
+        <li><i data-icon="folder"></i><a href="#">Hardware specs</a> · Vision override</li>
+      </ul>
+    </div>
+  </div>
+  <div class="drawer-foot">
+    <button class="btn btn-danger" type="button"><i data-icon="trash"></i>Delete…</button>
+    <div class="spacer"></div>
+    <button class="btn" type="button"><i data-icon="zap"></i>Test</button>
+    <button class="btn btn-primary" type="button">Save changes</button>
+  </div>
+</aside>
+</body>
+</html>

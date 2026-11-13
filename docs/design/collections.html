@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Collections · Fable (mockup)</title>
+<link rel="stylesheet" href="assets/fable.css">
+<script src="assets/shell.js"></script>
+</head>
+<body data-nav="collections" data-crumbs="Workspace|Collections">
+<main class="page">
+  <div class="page-head">
+    <div>
+      <h1>Collections</h1>
+      <p class="lede">Collections you can read. Admins see every collection under Admin → Collections.</p>
+    </div>
+    <div class="spacer"></div>
+    <button class="btn btn-primary" type="button"><i data-icon="plus"></i>New collection</button>
+  </div>
+
+  <nav class="tabs" aria-label="Saved views" style="margin-bottom:var(--sp-4)">
+    <a href="?view=all" aria-current="page">All <span class="count">1,284</span></a>
+    <a href="?view=mine">Owned by me <span class="count">14</span></a>
+    <a href="?view=fav">Favourites <span class="count">6</span></a>
+    <a href="?view=attention">Needs attention <span class="count">9</span></a>
+  </nav>
+
+  <div class="table-wrap">
+    <div class="toolbar">
+      <div class="input-group search"><span class="addon"><i data-icon="search"></i></span><input class="input" aria-label="Search collections" placeholder="Search name or description" value=""></div>
+      <button class="filter-btn active" type="button">Status: <span class="val">Any</span><i data-icon="down"></i></button>
+      <button class="filter-btn active" type="button">My role: <span class="val">Any</span><i data-icon="down"></i></button>
+      <button class="filter-btn" type="button"><i data-icon="plus"></i>Owner</button>
+      <button class="filter-btn" type="button"><i data-icon="plus"></i>Connector</button>
+      <div class="spacer"></div>
+      <button class="btn btn-sm" type="button"><i data-icon="eye"></i>Columns</button>
+    </div>
+    <div class="bulkbar" role="status">
+      <strong>2 selected</strong>
+      <button class="btn btn-sm" type="button"><i data-icon="refresh"></i>Sync now</button>
+      <button class="btn btn-sm" type="button"><i data-icon="refresh"></i>Retry failed documents</button>
+      <button class="btn btn-sm" type="button"><i data-icon="star"></i>Add to favourites</button>
+      <div class="spacer"></div>
+      <button class="btn btn-sm btn-ghost" type="button">Clear selection</button>
+    </div>
+    <table class="data">
+      <thead><tr>
+        <th class="w-check"><span class="box mixed" role="checkbox" aria-checked="mixed" aria-label="Select all on this page"></span></th>
+        <th aria-sort="ascending"><span class="sort">Name <i data-icon="sortdown"></i></span></th>
+        <th>Status</th>
+        <th class="right">Documents</th>
+        <th class="right">Chunks</th>
+        <th>Last sync</th>
+        <th>Owner</th>
+        <th>My role</th>
+        <th>Visible to</th>
+        <th class="actions"><span class="sr-only">Actions</span></th>
+      </tr></thead>
+      <tbody>
+        <tr>
+          <td class="w-check"><span class="box" role="checkbox" aria-checked="false" aria-label="Select Engineering handbook"></span></td>
+          <td><div class="row"><a class="cell-title" href="collection-detail.html">Engineering handbook</a><i data-icon="star" style="color:var(--warn);fill:currentColor"></i></div><div class="xs muted">Runbooks, ADRs, onboarding</div></td>
+          <td><span class="pill pill-ok"><i data-icon="check"></i>Healthy</span></td>
+          <td class="right num">1,486</td>
+          <td class="right num">22,904</td>
+          <td class="small">18 min ago</td>
+          <td class="small">Dana Kowalski</td>
+          <td><span class="pill pill-outline">Owner</span></td>
+          <td class="small muted">Everyone</td>
+          <td class="actions"><button class="btn btn-ghost btn-sm btn-icon" aria-label="Actions for Engineering handbook"><i data-icon="more"></i></button></td>
+        </tr>
+        <tr>
+          <td class="w-check"><span class="box" role="checkbox" aria-checked="false" aria-label="Select Platform incidents"></span></td>
+          <td><div class="row"><a class="cell-title" href="collection-detail.html">Platform incidents</a><i data-icon="star" style="color:var(--warn);fill:currentColor"></i></div><div class="xs muted">Post-mortems since 2019</div></td>
+          <td><span class="pill pill-info"><i data-icon="refresh" class="spin"></i>Indexing · 63%</span></td>
+          <td class="right num">3,210</td>
+          <td class="right num">41,770</td>
+          <td class="small">running</td>
+          <td class="small">Sam Okafor</td>
+          <td><span class="pill pill-outline">Editor</span></td>
+          <td class="small muted">Everyone</td>
+          <td class="actions"><button class="btn btn-ghost btn-sm btn-icon" aria-label="Actions for Platform incidents"><i data-icon="more"></i></button></td>
+        </tr>
+        <tr class="selected">
+          <td class="w-check"><span class="box on" role="checkbox" aria-checked="true" aria-label="Select HR policies"><i data-icon="check"></i></span></td>
+          <td><div class="row"><a class="cell-title" href="collection-detail.html">HR policies</a></div><div class="xs muted">Leave, benefits, travel</div></td>
+          <td><span class="pill pill-warn"><i data-icon="alert"></i>3 failed docs</span></td>
+          <td class="right num">412</td>
+          <td class="right num">5,117</td>
+          <td class="small">2 h ago</td>
+          <td class="small">Priya Raman</td>
+          <td><span class="pill pill-outline">Reader</span></td>
+          <td class="small muted">HR-All</td>
+          <td class="actions"><button class="btn btn-ghost btn-sm btn-icon" aria-label="Actions for HR policies"><i data-icon="more"></i></button></td>
+        </tr>
+        <tr>
+          <td class="w-check"><span class="box" role="checkbox" aria-checked="false" aria-label="Select Customer success playbooks"></span></td>
+          <td><div class="row"><a class="cell-title" href="collection-detail.html">Customer success playbooks</a></div></td>
+          <td><span class="pill pill-ok"><i data-icon="check"></i>Healthy</span></td>
+          <td class="right num">890</td>
+          <td class="right num">9,342</td>
+          <td class="small">1 h ago</td>
+          <td class="small">Lee Chen</td>
+          <td><span class="pill pill-outline">Editor</span></td>
+          <td class="small muted">CS-Team</td>
+          <td class="actions"><button class="btn btn-ghost btn-sm btn-icon" aria-label="Actions for Customer success playbooks"><i data-icon="more"></i></button></td>
+        </tr>
+        <tr>
+          <td class="w-check"><span class="box" role="checkbox" aria-checked="false" aria-label="Select Design system"></span></td>
+          <td><div class="row"><a class="cell-title" href="collection-detail.html">Design system</a></div><div class="xs muted">Tokens, components, guidelines</div></td>
+          <td><span class="pill pill-info"><i data-icon="refresh" class="spin"></i>Re-chunking · 12%</span></td>
+          <td class="right num">318</td>
+          <td class="right num">4,006</td>
+          <td class="small">running</td>
+          <td class="small">Dana Kowalski</td>
+          <td><span class="pill pill-outline">Owner</span></td>
+          <td class="small muted">Everyone</td>
+          <td class="actions"><button class="btn btn-ghost btn-sm btn-icon" aria-label="Actions for Design system"><i data-icon="more"></i></button></td>
+        </tr>
+        <tr class="selected">
+          <td class="w-check"><span class="box on" role="checkbox" aria-checked="true" aria-label="Select Finance – FY27 planning"><i data-icon="check"></i></span></td>
+          <td><div class="row"><a class="cell-title" href="collection-detail.html">Finance – FY27 planning</a></div></td>
+          <td><span class="pill pill-danger"><i data-icon="error"></i>Sync failed</span></td>
+          <td class="right num">77</td>
+          <td class="right num">1,203</td>
+          <td class="small">1 d ago</td>
+          <td class="small">Marta Novak</td>
+          <td><span class="pill pill-outline">Reader</span></td>
+          <td class="small muted">Finance</td>
+          <td class="actions"><button class="btn btn-ghost btn-sm btn-icon" aria-label="Actions for Finance – FY27 planning"><i data-icon="more"></i></button></td>
+        </tr>
+        <tr>
+          <td class="w-check"><span class="box" role="checkbox" aria-checked="false" aria-label="Select Hardware specs"></span></td>
+          <td><div class="row"><a class="cell-title" href="collection-detail.html">Hardware specs</a></div><div class="xs muted">Datasheets (PDF)</div></td>
+          <td><span class="pill pill-ok"><i data-icon="check"></i>Healthy</span></td>
+          <td class="right num">2,045</td>
+          <td class="right num">61,880</td>
+          <td class="small">6 h ago</td>
+          <td class="small">Jonas Weber</td>
+          <td><span class="pill pill-outline">Editor</span></td>
+          <td class="small muted">Hardware</td>
+          <td class="actions"><button class="btn btn-ghost btn-sm btn-icon" aria-label="Actions for Hardware specs"><i data-icon="more"></i></button></td>
+        </tr>
+        <tr>
+          <td class="w-check"><span class="box" role="checkbox" aria-checked="false" aria-label="Select Legal templates"></span></td>
+          <td><div class="row"><a class="cell-title" href="collection-detail.html">Legal templates</a></div></td>
+          <td><span class="pill pill-ok"><i data-icon="check"></i>Healthy</span></td>
+          <td class="right num">133</td>
+          <td class="right num">2,410</td>
+          <td class="small">3 h ago</td>
+          <td class="small">Aisha Bello</td>
+          <td><span class="pill pill-outline">Reader</span></td>
+          <td class="small muted">Legal</td>
+          <td class="actions"><button class="btn btn-ghost btn-sm btn-icon" aria-label="Actions for Legal templates"><i data-icon="more"></i></button></td>
+        </tr>
+        <tr>
+          <td class="w-check"><span class="box" role="checkbox" aria-checked="false" aria-label="Select Mobile app"></span></td>
+          <td><div class="row"><a class="cell-title" href="collection-detail.html">Mobile app</a></div><div class="xs muted">iOS & Android guides</div></td>
+          <td><span class="pill pill-ok"><i data-icon="check"></i>Healthy</span></td>
+          <td class="right num">540</td>
+          <td class="right num">7,912</td>
+          <td class="small">27 min ago</td>
+          <td class="small">Sam Okafor</td>
+          <td><span class="pill pill-outline">Editor</span></td>
+          <td class="small muted">Everyone</td>
+          <td class="actions"><button class="btn btn-ghost btn-sm btn-icon" aria-label="Actions for Mobile app"><i data-icon="more"></i></button></td>
+        </tr>
+        <tr>
+          <td class="w-check"><span class="box" role="checkbox" aria-checked="false" aria-label="Select Onboarding 2026"></span></td>
+          <td><div class="row"><a class="cell-title" href="collection-detail.html">Onboarding 2026</a></div></td>
+          <td><span class="pill">Empty</span></td>
+          <td class="right num">0</td>
+          <td class="right num">0</td>
+          <td class="small">never</td>
+          <td class="small">Dana Kowalski</td>
+          <td><span class="pill pill-outline">Owner</span></td>
+          <td class="small muted">Only me</td>
+          <td class="actions"><button class="btn btn-ghost btn-sm btn-icon" aria-label="Actions for Onboarding 2026"><i data-icon="more"></i></button></td>
+        </tr>
+        <tr>
+          <td class="w-check"><span class="box" role="checkbox" aria-checked="false" aria-label="Select Payments service"></span></td>
+          <td><div class="row"><a class="cell-title" href="collection-detail.html">Payments service</a></div><div class="xs muted">Specs, runbooks, Slack #payments</div></td>
+          <td><span class="pill pill-ok"><i data-icon="check"></i>Healthy</span></td>
+          <td class="right num">1,102</td>
+          <td class="right num">18,664</td>
+          <td class="small">12 min ago</td>
+          <td class="small">Lee Chen</td>
+          <td><span class="pill pill-outline">Editor</span></td>
+          <td class="small muted">Payments</td>
+          <td class="actions"><button class="btn btn-ghost btn-sm btn-icon" aria-label="Actions for Payments service"><i data-icon="more"></i></button></td>
+        </tr>
+        <tr>
+          <td class="w-check"><span class="box" role="checkbox" aria-checked="false" aria-label="Select Security advisories"></span></td>
+          <td><div class="row"><a class="cell-title" href="collection-detail.html">Security advisories</a></div></td>
+          <td><span class="pill pill-ok"><i data-icon="check"></i>Healthy</span></td>
+          <td class="right num">96</td>
+          <td class="right num">1,140</td>
+          <td class="small">4 h ago</td>
+          <td class="small">Aisha Bello</td>
+          <td><span class="pill pill-outline">Reader</span></td>
+          <td class="small muted">Everyone</td>
+          <td class="actions"><button class="btn btn-ghost btn-sm btn-icon" aria-label="Actions for Security advisories"><i data-icon="more"></i></button></td>
+        </tr>      </tbody>
+    </table>
+    <div class="pager">
+      <span class="num">1–25 of 1,284</span> <span class="xs faint">(mockup shows the first 12 rows)</span>
+      <div class="spacer"></div>
+      <label class="row small">Rows per page <select class="select" aria-label="Rows per page"><option>25</option><option>50</option><option>100</option></select></label>
+      <button class="btn btn-sm" type="button" disabled><i data-icon="left"></i>Previous</button>
+      <button class="btn btn-sm" type="button">Next<i data-icon="right"></i></button>
+    </div>
+  </div>
+  <p class="xs muted" style="margin-top:var(--sp-2)">Filters, sort and page live in the URL (<span class="mono">?view=all&amp;sort=name&amp;q=&amp;cursor=…</span>) so views can be shared and survive reload.</p>
+</main>
+</body>
+</html>

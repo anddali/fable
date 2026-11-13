@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Indexing settings · Engineering handbook · Fable (mockup)</title>
+<link rel="stylesheet" href="assets/fable.css">
+<script src="assets/shell.js"></script>
+<style>
+  .settings-layout { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: var(--sp-5); align-items: start; }
+  .was { font-size: var(--fs-xs); color: var(--text-muted); }
+  .was s { color: var(--text-faint); }
+</style>
+</head>
+<body data-nav="collections" data-crumbs="Collections|Engineering handbook|Indexing settings">
+<main class="page">
+  <div class="page-head">
+    <div><h1>Engineering handbook</h1><p class="lede">Runbooks, ADRs and onboarding docs.</p></div>
+  </div>
+  <nav class="tabs" role="tablist" aria-label="Collection sections">
+    <a href="collection-detail.html" role="tab" aria-selected="false">Overview</a>
+    <a href="#" role="tab" aria-selected="false">Sources <span class="count">2</span></a>
+    <a href="#" role="tab" aria-selected="false">Documents <span class="count">1,486</span></a>
+    <a href="#" role="tab" aria-selected="false">Syncs</a>
+    <a href="#" role="tab" aria-selected="true">Indexing settings <span class="changed-dot" aria-label="unsaved changes"></span></a>
+    <a href="#" role="tab" aria-selected="false">Access</a>
+    <a href="evaluation.html" role="tab" aria-selected="false">Evaluation</a>
+    <a href="#" role="tab" aria-selected="false">Feedback</a>
+  </nav>
+
+  <div class="settings-layout">
+    <form class="card" aria-label="Indexing settings">
+      <section class="form-section" aria-labelledby="h-chunk">
+        <div class="form-section-head"><h2 id="h-chunk" style="font-size:16px">Chunking</h2><span class="pill pill-warn"><span class="changed-dot"></span>Changed</span></div>
+        <div class="stack-4">
+          <div class="field">
+            <label class="label" for="max">Maximum chunk size</label>
+            <div class="slider"><div class="rail"><div class="fill" style="width:8%"></div><div class="thumb" style="left:8%"></div></div><div class="input-group" style="width:150px"><input class="input num" id="max" value="800"><span class="addon">chars</span></div></div>
+            <span class="was">Was <s>1,000</s> · allowed 200–8,000. Smaller chunks retrieve more precisely; larger keep more context.</span>
+          </div>
+          <div class="field">
+            <label class="label" for="min">Minimum section size</label>
+            <div class="input-group" style="width:150px"><input class="input num" id="min" value="200"><span class="addon">chars</span></div>
+            <span class="help">Short sections merge with the next one. 0 turns merging off.</span>
+          </div>
+          <div class="switch" role="switch" aria-checked="true" tabindex="0"><span class="track"></span>Include heading path (“Runbooks › Incidents › Paging”) in embeddings and results</div>
+        </div>
+      </section>
+
+      <section class="form-section" aria-labelledby="h-ctx">
+        <div class="form-section-head"><h2 id="h-ctx" style="font-size:16px">Context line</h2><span class="pill pill-warn"><span class="changed-dot"></span>Changed</span></div>
+        <div class="stack-4">
+          <div class="switch" role="switch" aria-checked="true" tabindex="0"><span class="track"></span>Add a one-sentence context to each chunk <span class="was">(was off)</span></div>
+          <div class="grid-2">
+            <div class="field"><label class="label" for="c-model">Model</label><select class="select" id="c-model"><option>Platform default · Anthropic claude-haiku-5-5</option></select></div>
+            <div class="field"><label class="label" for="c-scope">Context from</label><select class="select" id="c-scope"><option>Neighbouring chunks (window 2)</option><option>Whole document</option></select></div>
+          </div>
+          <div class="row"><a class="btn btn-sm" href="admin-model-roles.html"><i data-icon="eye"></i>Preview on a chunk</a><span class="help">Shows the exact prompt and resulting text.</span></div>
+        </div>
+      </section>
+
+      <section class="form-section" aria-labelledby="h-vis">
+        <div class="form-section-head"><h2 id="h-vis" style="font-size:16px">Images (vision)</h2></div>
+        <div class="stack-4">
+          <div class="grid-2">
+            <div class="field"><label class="label" for="v-model">Model</label><select class="select" id="v-model"><option>Platform default · Local Ollama llava:13b</option><option>Off</option></select></div>
+            <div class="field"><label class="label" for="v-max">Max images per document</label><input class="input num" id="v-max" value="50"></div>
+          </div>
+          <div class="grid-2">
+            <div class="field"><label class="label" for="v-min">Skip images smaller than</label><div class="input-group"><input class="input num" id="v-min" value="64"><span class="addon">px</span></div></div>
+            <div class="field"><span class="label">Keep figure images</span><div class="switch" role="switch" aria-checked="false" tabindex="0"><span class="track"></span>Show images in search results (~50 KB each)</div></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="form-section" aria-labelledby="h-parse">
+        <div class="form-section-head"><h2 id="h-parse" style="font-size:16px">Parsing</h2></div>
+        <div class="grid-2">
+          <div class="field"><label class="label" for="p-parser">Parser</label><select class="select" id="p-parser"><option>Automatic (by file type)</option></select><span class="help">Changing this needs a full re-fetch from sources.</span></div>
+          <div class="field"><span class="label">Clean-up</span><div class="check"><span class="box on"><i data-icon="check"></i></span>Basic clean-up (whitespace, boilerplate)</div></div>
+        </div>
+      </section>
+
+      <section class="form-section" aria-labelledby="h-search">
+        <div class="form-section-head"><h2 id="h-search" style="font-size:16px">Search</h2></div>
+        <div class="field" style="max-width:320px"><label class="label" for="fts">Full-text language</label><select class="select" id="fts"><option>English</option></select></div>
+      </section>
+    </form>
+
+    <aside class="card impact" aria-labelledby="impact-title" aria-live="polite">
+      <div class="card-head"><i data-icon="target"></i><h2 id="impact-title" style="font-size:16px">What saving will do</h2></div>
+      <div class="card-body" style="padding-top:var(--sp-2);padding-bottom:var(--sp-2)">
+        <div class="impact-row">
+          <span class="pill pill-info" style="padding:0;width:28px;justify-content:center"><i data-icon="layers"></i></span>
+          <div><strong>Re-chunk 1,486 documents</strong><div class="xs muted">From stored chunks — nothing is fetched again. ~22,900 → ~28,400 chunks.</div></div>
+          <span class="small muted num">~4 min</span>
+        </div>
+        <div class="impact-row">
+          <span class="pill pill-info" style="padding:0;width:28px;justify-content:center"><i data-icon="sparkle"></i></span>
+          <div><strong>Generate context for ~28,400 chunks</strong><div class="xs muted">claude-haiku-5-5 · ~410 tokens each</div></div>
+          <span class="cost-badge pill-warn">≈ $9.30</span>
+        </div>
+        <div class="impact-row">
+          <span class="pill pill-info" style="padding:0;width:28px;justify-content:center"><i data-icon="cpu"></i></span>
+          <div><strong>Re-embed ~28,400 chunks</strong><div class="xs muted">text-embedding-3-small · unchanged text comes from cache</div></div>
+          <span class="cost-badge pill-warn">≈ $0.12</span>
+        </div>
+        <div class="impact-row">
+          <span class="pill" style="padding:0;width:28px;justify-content:center"><i data-icon="check"></i></span>
+          <div class="muted"><strong>No re-fetch from sources</strong><div class="xs">Only a parser change would need one (and upload sources would need files re-uploaded).</div></div>
+          <span></span>
+        </div>
+      </div>
+      <div class="card-body" style="border-top:1px solid var(--border)">
+        <div class="stack-3">
+          <div class="callout callout-info"><i data-icon="info"></i><div>Search keeps using the current chunks until each document is rebuilt. Total ≈ 12 min, ≈ $9.42.</div></div>
+          <div class="check"><span class="box on"><i data-icon="check"></i></span>Run “On-call &amp; incidents” evaluation when done</div>
+        </div>
+      </div>
+      <div class="card-foot">
+        <button class="btn" type="button">Discard</button>
+        <div class="spacer"></div>
+        <button class="btn btn-primary" type="button">Save and rebuild</button>
+      </div>
+    </aside>
+  </div>
+</main>
+</body>
+</html>

@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Search · Fable (mockup)</title>
+<link rel="stylesheet" href="assets/fable.css">
+<script src="assets/shell.js"></script>
+<style>
+  .search-layout { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: var(--sp-5); align-items: start; }
+  .query-bar { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: var(--sp-2); }
+  .scope { position: relative; margin-top: var(--sp-3); }
+  .scope .popover { top: 48px; left: 0; width: 520px; padding: var(--sp-2); }
+  .filters { position: sticky; top: calc(var(--topbar-h) + var(--sp-5)); }
+  .filters .card-body { display: flex; flex-direction: column; gap: var(--sp-5); }
+</style>
+</head>
+<body data-nav="search" data-crumbs="Workspace|Search">
+<main class="page">
+  <div class="query-bar">
+    <div class="input-group"><span class="addon"><i data-icon="search" class="icon-lg"></i></span><input class="input input-lg" aria-label="Search query" value="when should we scale the ledger worker"></div>
+    <div class="segmented" role="group" aria-label="Search mode" style="align-self:center"><button type="button" aria-pressed="true">Hybrid</button><button type="button" aria-pressed="false">Semantic</button></div>
+    <button class="btn btn-primary btn-lg" type="button">Search</button>
+  </div>
+
+  <div class="scope">
+    <div class="picker" role="combobox" aria-expanded="true" aria-controls="coll-list" aria-haspopup="listbox" aria-label="Collections to search">
+      <span class="xs muted" style="padding:0 4px">In</span>
+      <span class="tag">Engineering handbook<button aria-label="Remove Engineering handbook"><i data-icon="x"></i></button></span>
+      <span class="tag">Payments service<button aria-label="Remove Payments service"><i data-icon="x"></i></button></span>
+      <input class="input" aria-label="Find a collection" value="plat">
+    </div>
+    <div class="popover" id="coll-list" role="listbox" aria-multiselectable="true">
+      <div class="menu-item" role="option" aria-selected="false" style="border-bottom:1px solid var(--border);border-radius:0;margin-bottom:4px"><span class="box"></span><strong>All readable collections</strong><span class="spacer"></span><span class="xs muted num">1,284</span></div>
+      <div class="menu-group">Matches “plat” · 4</div>
+      <div class="menu-item active" role="option" aria-selected="false"><span class="box"></span><span><mark style="background:var(--warn-soft);color:inherit">Plat</mark>form incidents</span><span class="spacer"></span><span class="xs muted">3,210 docs · Everyone</span></div>
+      <div class="menu-item" role="option" aria-selected="false"><span class="box"></span><span><mark style="background:var(--warn-soft);color:inherit">Plat</mark>form runbooks (archived)</span><span class="spacer"></span><span class="xs muted">412 docs · Everyone</span></div>
+      <div class="menu-item" role="option" aria-selected="false"><span class="box"></span><span>Data <mark style="background:var(--warn-soft);color:inherit">plat</mark>form RFCs</span><span class="spacer"></span><span class="xs muted">88 docs · Data-Eng</span></div>
+      <div class="menu-item" role="option" aria-selected="false"><span class="box"></span><span><mark style="background:var(--warn-soft);color:inherit">Plat</mark>form SLOs</span><span class="spacer"></span><span class="xs muted">31 docs · Only me</span></div>
+      <div class="menu-group">Favourites</div>
+      <div class="menu-item" role="option" aria-selected="true"><span class="box on"><i data-icon="check"></i></span>Engineering handbook<span class="spacer"></span><i data-icon="star" style="color:var(--warn);fill:currentColor"></i></div>
+      <div class="menu-group">Recent</div>
+      <div class="menu-item" role="option" aria-selected="true"><span class="box on"><i data-icon="check"></i></span>Payments service<span class="spacer"></span><span class="xs muted">searched 1 h ago</span></div>
+      <div class="row xs muted" style="padding:var(--sp-2) var(--sp-3) var(--sp-1)"><span class="kbd">↑</span><span class="kbd">↓</span> move <span class="kbd">Space</span> toggle <span class="kbd">Esc</span> close</div>
+    </div>
+  </div>
+
+  <div class="search-layout" style="margin-top:var(--sp-5)">
+    <aside class="card filters" aria-labelledby="f-title">
+      <div class="card-head"><i data-icon="filter"></i><h2 id="f-title" style="font-size:15px">Filters</h2><div class="spacer"></div><button class="btn btn-ghost btn-sm" type="button">Clear</button></div>
+      <div class="card-body">
+        <fieldset class="facet" style="border:0;padding:0;margin:0"><legend class="section-title" style="margin-bottom:6px">Updated</legend>
+          <div class="segmented" role="group" aria-label="Updated"><button type="button" aria-pressed="false">Any</button><button type="button" aria-pressed="false">7 d</button><button type="button" aria-pressed="true">90 d</button><button type="button" aria-pressed="false">Custom</button></div>
+        </fieldset>
+        <fieldset class="facet" style="border:0;padding:0;margin:0"><legend class="section-title" style="margin-bottom:6px">Connector</legend>
+          <label class="check"><span class="box on"><i data-icon="check"></i></span>Confluence<span class="n">1,512</span></label>
+          <label class="check"><span class="box"></span>Git<span class="n">246</span></label>
+          <label class="check"><span class="box"></span>Slack<span class="n">830</span></label>
+        </fieldset>
+        <fieldset class="facet" style="border:0;padding:0;margin:0"><legend class="section-title" style="margin-bottom:6px">Source</legend>
+          <label class="check"><span class="box"></span>ENG space<span class="n">1,240</span></label>
+          <label class="check"><span class="box"></span>Payments space<span class="n">272</span></label>
+          <label class="check"><span class="box"></span>ADR repo<span class="n">246</span></label>
+          <a class="small" href="#">Show 2 more</a>
+        </fieldset>
+        <fieldset class="facet" style="border:0;padding:0;margin:0"><legend class="section-title" style="margin-bottom:6px">File type</legend>
+          <label class="check"><span class="box"></span>Pages (HTML)<span class="n">1,512</span></label>
+          <label class="check"><span class="box"></span>PDF<span class="n">94</span></label>
+          <label class="check"><span class="box"></span>Markdown<span class="n">246</span></label>
+        </fieldset>
+        <div class="field"><label class="label" for="f-title-c">Title contains</label><input class="input" id="f-title-c" placeholder="e.g. runbook"></div>
+      </div>
+    </aside>
+
+    <section aria-labelledby="r-title">
+      <div class="row" style="margin-bottom:var(--sp-3)">
+        <h2 id="r-title" class="small" style="font-weight:600">10 results <span class="muted" style="font-weight:400">· 2 collections · Confluence · updated in last 90 days · 184 ms</span></h2>
+        <div class="spacer"></div>
+        <a class="btn btn-sm" href="chat.html"><i data-icon="chat"></i>Ask in chat</a>
+      </div>
+      <div class="card">
+        <article class="hit">
+          <div class="row"><a class="hit-title" href="#">Payments service · Scaling runbook</a><span class="spacer"></span><span class="score" title="Hybrid rank score">0.0328</span></div>
+          <div class="hit-path"><span class="pill pill-outline">Confluence</span> Payments service <i data-icon="right"></i> Operations <i data-icon="right"></i> Autoscaling · updated 12 days ago</div>
+          <p class="hit-context">Context: This chunk is from the Payments service scaling runbook and describes when to manually scale the ledger worker based on queue depth.</p>
+          <p class="hit-text"><mark>Scale</mark> to 5 replicas if queue depth exceeds 10k for more than 5 minutes; page the on-call if it keeps growing. Never <mark>scale</mark> the <mark>ledger</mark> writer beyond 1 replica (single-writer lock).</p>
+          <div class="row xs" style="margin-top:var(--sp-2)"><a href="#">Show surrounding chunks</a><span class="faint">·</span><a href="#">Open in Confluence <i data-icon="external"></i></a></div>
+        </article>
+        <article class="hit">
+          <div class="row"><a class="hit-title" href="#">Ledger worker design</a><span class="spacer"></span><span class="score">0.0311</span></div>
+          <div class="hit-path"><span class="pill pill-outline">Confluence</span> Engineering handbook <i data-icon="right"></i> Architecture <i data-icon="right"></i> Ledger · updated 41 days ago</div>
+          <p class="hit-context">Context: Part of the ledger worker design doc explaining how throughput limits relate to the single-writer lock.</p>
+          <p class="hit-text">The <mark>worker</mark> consumes ledger events in batches of 500. Throughput is bounded by the writer lock, so adding consumers helps only until…</p>
+        </article>
+        <article class="hit">
+          <div class="row"><a class="hit-title" href="#">Incident 2026-08-14: ledger backlog</a><span class="spacer"></span><span class="score">0.0297</span></div>
+          <div class="hit-path"><span class="pill pill-outline">Confluence</span> Engineering handbook <i data-icon="right"></i> Post-mortems · updated 62 days ago</div>
+          <p class="hit-context">Context: Timeline section of a post-mortem about a ledger queue backlog during the August sale.</p>
+          <p class="hit-text">At 14:02 the <mark>ledger</mark> queue passed 40k. On-call <mark>scaled</mark> consumers to 8, which made lock contention worse…</p>
+        </article>
+      </div>
+      <div class="pager" style="border:0"><span>Showing 1–3 of 10</span><div class="spacer"></div><button class="btn btn-sm" type="button">Show more</button></div>
+    </section>
+  </div>
+</main>
+</body>
+</html>
