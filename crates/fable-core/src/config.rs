@@ -32,15 +32,14 @@ use std::num::NonZeroUsize;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use base64::engine::general_purpose::{GeneralPurpose, GeneralPurposeConfig};
-use base64::engine::DecodePaddingMode;
-use base64::Engine as _;
 use figment::providers::{Env, Serialized};
 use figment::Figment;
-use secrecy::{ExposeSecret, SecretBox, SecretString};
+use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::role::Role;
+use crate::secrets::CryptoError;
+pub use crate::secrets::{MasterKey, MASTER_KEY_LEN};
 
 /// Default HTTP bind address (`RAG_HTTP__BIND`).
 pub const DEFAULT_HTTP_BIND: &str = "0.0.0.0:8000";
@@ -50,8 +49,6 @@ pub const DEFAULT_SCRATCH_DIR: &str = "/tmp/fable";
 pub const DEFAULT_SCRATCH_MAX_BYTES: u64 = 10 * 1024 * 1024 * 1024;
 /// Default log filter (`RAG_LOG_LEVEL`).
 pub const DEFAULT_LOG_LEVEL: &str = "info";
-/// Length of the decoded master key in bytes (AES-256).
-pub const MASTER_KEY_LEN: usize = 32;
 
 /// Env keys read by [`BootstrapConfig::from_env`], after stripping `RAG_`
 /// and replacing `__` with `.` (matched case-insensitively).
@@ -133,50 +130,6 @@ pub enum AuthMode {
     Entra,
     /// Inject a local dev principal. Never allowed in `prod` (C-6).
     Disabled,
-}
-
-/// The 32-byte master key that encrypts stored secrets (`RAG_MASTER_KEY`).
-///
-/// Never printed: `Debug` is redacted and there is no `Display`.
-pub struct MasterKey(SecretBox<[u8; MASTER_KEY_LEN]>);
-
-impl MasterKey {
-    /// Decode a base64 (standard or URL-safe, padding optional) key that
-    /// must decode to exactly 32 bytes. Errors never include the value.
-    pub fn from_base64(encoded: &str) -> Result<Self, ConfigError> {
-        let encoded = encoded.trim();
-        if encoded.is_empty() {
-            return Err(ConfigError::InvalidMasterKey("it is empty"));
-        }
-        let cfg =
-            GeneralPurposeConfig::new().with_decode_padding_mode(DecodePaddingMode::Indifferent);
-        let decoded = GeneralPurpose::new(&base64::alphabet::STANDARD, cfg)
-            .decode(encoded)
-            .or_else(|_| GeneralPurpose::new(&base64::alphabet::URL_SAFE, cfg).decode(encoded))
-            .map_err(|_| ConfigError::InvalidMasterKey("it is not valid base64"))?;
-        let bytes: [u8; MASTER_KEY_LEN] = decoded
-            .as_slice()
-            .try_into()
-            .map_err(|_| ConfigError::InvalidMasterKey("it must decode to exactly 32 bytes"))?;
-        Ok(Self(SecretBox::new(Box::new(bytes))))
-    }
-
-    /// The raw key bytes. Callers must not log or persist them.
-    pub fn expose_bytes(&self) -> &[u8; MASTER_KEY_LEN] {
-        self.0.expose_secret()
-    }
-}
-
-impl Clone for MasterKey {
-    fn clone(&self) -> Self {
-        Self(SecretBox::new(Box::new(*self.0.expose_secret())))
-    }
-}
-
-impl fmt::Debug for MasterKey {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("MasterKey([REDACTED])")
-    }
 }
 
 /// Settings needed before a database and a signed-in admin exist.
@@ -406,6 +359,15 @@ pub enum ConfigError {
     AuthDisabledInProd,
 }
 
+impl From<CryptoError> for ConfigError {
+    fn from(err: CryptoError) -> Self {
+        match err {
+            CryptoError::InvalidKey(reason) => ConfigError::InvalidMasterKey(reason),
+            _ => ConfigError::InvalidMasterKey("it could not be loaded"),
+        }
+    }
+}
+
 impl BootstrapConfig {
     /// Load from the process environment (`RAG_` prefix, `__` nesting) and
     /// apply the startup guards (C-5–C-7).
@@ -436,7 +398,7 @@ impl BootstrapConfig {
         let master_key = raw
             .master_key
             .filter(|k| !k.trim().is_empty())
-            .map(|k| MasterKey::from_base64(&k))
+            .map(|k| MasterKey::from_base64(&k).map_err(ConfigError::from))
             .transpose()?;
         if master_key.is_none() && raw.environment != Environment::Dev {
             return Err(ConfigError::MasterKeyRequired(raw.environment));
@@ -504,6 +466,7 @@ pub fn normalize_database_url(url: &str) -> String {
 #[allow(clippy::result_large_err)] // figment::Jail closures return figment::Error
 mod tests {
     use super::*;
+    use base64::Engine as _;
 
     /// base64 of the bytes 0, 1, …, 31.
     const KEY_B64: &str = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=";
