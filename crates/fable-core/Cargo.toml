@@ -1,0 +1,18 @@
+[package]
+name = "fable-core"
+description = "Bootstrap config, shared types, errors, RBAC, secrets and plugin traits."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+figment.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+figment = { workspace = true, features = ["test"] }
+
+[lints]
+workspace = true

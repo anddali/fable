@@ -1,0 +1,55 @@
+[workspace]
+resolver = "2"
+members = ["crates/*"]
+default-members = ["crates/fable"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+publish = false
+
+[workspace.dependencies]
+# Internal crates
+fable-core = { path = "crates/fable-core" }
+fable-db = { path = "crates/fable-db" }
+fable-queue = { path = "crates/fable-queue" }
+fable-models = { path = "crates/fable-models" }
+fable-parsers = { path = "crates/fable-parsers" }
+fable-pipeline = { path = "crates/fable-pipeline" }
+fable-worker = { path = "crates/fable-worker" }
+fable-search = { path = "crates/fable-search" }
+fable-api = { path = "crates/fable-api" }
+connector-upload = { path = "crates/connector-upload" }
+connector-confluence = { path = "crates/connector-confluence" }
+connector-sharepoint = { path = "crates/connector-sharepoint" }
+connector-git = { path = "crates/connector-git" }
+connector-slack = { path = "crates/connector-slack" }
+
+# Third party
+anyhow = "1"
+axum = "0.8"
+clap = { version = "4", features = ["derive"] }
+figment = { version = "0.10", features = ["env"] }
+reqwest = { version = "0.12", default-features = false }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "tls-rustls-ring", "postgres", "macros", "migrate"] }
+thiserror = "2"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "signal", "time"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+utoipa = "5"
+utoipa-axum = "0.2"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+dbg_macro = "warn"
+todo = "warn"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true

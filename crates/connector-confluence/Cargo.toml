@@ -1,0 +1,12 @@
+[package]
+name = "connector-confluence"
+description = "Confluence connector (Atlassian service-account API)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+
+[lints]
+workspace = true
