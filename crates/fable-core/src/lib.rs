@@ -8,5 +8,5 @@
 pub mod config;
 pub mod role;
 
-pub use config::{BootstrapConfig, ConfigError};
+pub use config::{AuthMode, BootstrapConfig, ConfigError, Environment, MasterKey};
 pub use role::Role;

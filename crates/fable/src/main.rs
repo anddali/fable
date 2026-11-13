@@ -30,14 +30,27 @@ use fable_worker as _;
 use std::process::ExitCode;
 
 use clap::Parser;
-use fable_core::BootstrapConfig;
+use fable_core::{AuthMode, BootstrapConfig};
 
 use crate::cli::{Cli, Command};
 
 fn main() -> ExitCode {
     let cli = Cli::parse();
-    init_tracing();
-    match real_main(cli) {
+    // Configuration errors (including the prod guards, spec §4 C-6/C-7) are
+    // startup failures. Tracing is not set up yet: report on stderr.
+    let config = match BootstrapConfig::from_env() {
+        Ok(config) => config,
+        Err(err) => {
+            eprintln!("error: {err}");
+            return ExitCode::FAILURE;
+        }
+    };
+    if let Err(err) = init_tracing(&config.log_level) {
+        eprintln!("error: invalid RAG_LOG_LEVEL: {err}");
+        return ExitCode::FAILURE;
+    }
+    log_config_warnings(&config);
+    match real_main(cli, config) {
         Ok(code) => code,
         Err(err) => {
             tracing::error!(error = format!("{err:#}"), "fatal");
@@ -47,8 +60,7 @@ fn main() -> ExitCode {
     }
 }
 
-fn real_main(cli: Cli) -> anyhow::Result<ExitCode> {
-    let config = BootstrapConfig::from_env()?;
+fn real_main(cli: Cli, config: BootstrapConfig) -> anyhow::Result<ExitCode> {
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?;
@@ -66,13 +78,31 @@ fn real_main(cli: Cli) -> anyhow::Result<ExitCode> {
     Ok(ExitCode::SUCCESS)
 }
 
-fn init_tracing() {
+fn init_tracing(log_level: &str) -> anyhow::Result<()> {
     use tracing_subscriber::EnvFilter;
-    // The log level becomes a bootstrap setting (RAG_LOG_LEVEL) with the
-    // bootstrap-config work; until then default to `info`.
+    let filter = EnvFilter::try_new(log_level)?;
     tracing_subscriber::fmt()
         .json()
-        .with_env_filter(EnvFilter::new("info"))
+        .with_env_filter(filter)
         .with_writer(std::io::stderr)
         .init();
+    Ok(())
+}
+
+/// Loud warnings for configurations that are allowed but unsafe.
+fn log_config_warnings(config: &BootstrapConfig) {
+    if config.auth.mode == AuthMode::Disabled {
+        tracing::warn!(
+            environment = %config.environment,
+            "RAG_AUTH__MODE=disabled: every request runs as the local dev principal; never use this outside development"
+        );
+    }
+    if config.master_key.is_none() {
+        // Only reachable in `dev` (C-7); the DB-stored dev key is managed by
+        // the secrets module.
+        tracing::warn!(
+            environment = %config.environment,
+            "RAG_MASTER_KEY is not set: a generated development key stored in the database will encrypt secrets; set RAG_MASTER_KEY for any non-dev deployment"
+        );
+    }
 }

@@ -56,6 +56,56 @@ fn rejects_bad_role_env() {
 }
 
 #[test]
+fn prod_with_auth_disabled_fails_startup() {
+    fable()
+        .env("RAG_ENVIRONMENT", "prod")
+        .env(
+            "RAG_MASTER_KEY",
+            "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+        )
+        .env("RAG_AUTH__MODE", "disabled")
+        .env("RAG_DATABASE_URL", "postgres://u:p@127.0.0.1:1/none")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(
+            "RAG_AUTH__MODE=disabled is not permitted when RAG_ENVIRONMENT=prod",
+        ));
+}
+
+#[test]
+fn missing_master_key_outside_dev_fails_startup() {
+    for env in ["staging", "prod"] {
+        fable()
+            .env("RAG_ENVIRONMENT", env)
+            .env("RAG_DATABASE_URL", "postgres://u:p@127.0.0.1:1/none")
+            .assert()
+            .failure()
+            .stderr(predicate::str::contains("RAG_MASTER_KEY is required"));
+    }
+}
+
+#[test]
+fn invalid_master_key_is_not_echoed() {
+    fable()
+        .env("RAG_MASTER_KEY", "c2VjcmV0LXRvby1zaG9ydA==")
+        .arg("migrate")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("RAG_MASTER_KEY is invalid"))
+        .stderr(predicate::str::contains("c2VjcmV0LXRvby1zaG9ydA==").not());
+}
+
+#[test]
+fn rejects_bad_log_level() {
+    fable()
+        .env("RAG_LOG_LEVEL", "fable=[")
+        .arg("migrate")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("invalid RAG_LOG_LEVEL"));
+}
+
+#[test]
 fn stub_subcommands_exit_not_implemented() {
     for sub in ["parse-worker", "eval", "rotate-master-key"] {
         fable()
