@@ -407,6 +407,8 @@ impl BootstrapConfig {
         if raw.auth.mode == AuthMode::Disabled && raw.environment == Environment::Prod {
             return Err(ConfigError::AuthDisabledInProd);
         }
+        crate::principal::RoleMap::from_config(&raw.auth)
+            .map_err(|e| ConfigError::Invalid(e.to_string()))?;
 
         let log_level = match raw.log_level.trim() {
             "" => DEFAULT_LOG_LEVEL.to_owned(),
@@ -635,6 +637,22 @@ mod tests {
             jail.set_env("RAG_ENVIRONMENT", "staging");
             jail.set_env("RAG_MASTER_KEY", KEY_B64);
             assert!(BootstrapConfig::from_env().is_ok());
+            Ok(())
+        });
+    }
+
+    #[test]
+    fn unknown_platform_role_in_role_map_fails() {
+        figment::Jail::expect_with(|jail| {
+            jail.set_env("RAG_AUTH__ROLE_MAP", r#"{"Rag.Admin":"root"}"#);
+            let err = BootstrapConfig::from_env().unwrap_err();
+            assert!(matches!(err, ConfigError::Invalid(_)));
+            assert!(err.to_string().contains("RAG_AUTH__ROLE_MAP"), "{err}");
+
+            jail.set_env("RAG_AUTH__ROLE_MAP", r#"{"Rag.Admin":"admin"}"#);
+            jail.set_env("RAG_AUTH__DEFAULT_ROLE", "guest");
+            let err = BootstrapConfig::from_env().unwrap_err();
+            assert!(err.to_string().contains("RAG_AUTH__DEFAULT_ROLE"), "{err}");
             Ok(())
         });
     }

@@ -363,3 +363,45 @@ fn error_messages_do_not_echo_tokens() {
         assert!(!err.is_server_error());
     }
 }
+
+#[tokio::test]
+async fn authenticator_maps_token_to_principal() {
+    use fable_api::auth::{AuthError, Authenticator};
+    use fable_core::principal::{GlobalRole, RoleMap};
+
+    let server = server_with_key1(1).await;
+    let auth = Authenticator::entra(
+        validator(&server, HOUR, HOUR),
+        RoleMap::from_config(&Default::default()).unwrap(),
+    );
+
+    let p = auth
+        .authenticate(Some(&sign(KEY1_PEM, Some("k1"), &claims())))
+        .await
+        .unwrap();
+    assert_eq!(p.oid, "user-oid");
+    assert_eq!(p.name, "Ada Lovelace");
+    assert_eq!(p.email, "ada@example.com");
+    assert_eq!(p.group_ids.iter().collect::<Vec<_>>(), ["g1", "g2"]);
+    assert!(p.is_admin() && p.is_sso());
+
+    let mut c = claims();
+    c["roles"] = json!([]);
+    let p = auth
+        .authenticate(Some(&sign(KEY1_PEM, Some("k1"), &c)))
+        .await
+        .unwrap();
+    assert_eq!(
+        p.global_roles.into_iter().collect::<Vec<_>>(),
+        [GlobalRole::User]
+    );
+
+    assert!(matches!(
+        auth.authenticate(None).await,
+        Err(AuthError::MissingToken)
+    ));
+    assert!(matches!(
+        auth.authenticate(Some("not-a-jwt")).await,
+        Err(AuthError::Token(TokenError::Malformed))
+    ));
+}
