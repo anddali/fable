@@ -1,0 +1,12 @@
+[package]
+name = "fable-models"
+description = "Model-provider kinds and shared embeddings/chat/vision/completion clients."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+
+[lints]
+workspace = true

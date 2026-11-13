@@ -1,0 +1,55 @@
+[package]
+name = "fable"
+description = "The Fable RAG platform: one binary for the API, workers and ops subcommands."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "fable"
+path = "src/main.rs"
+
+[features]
+default = [
+    "connector-upload",
+    "connector-confluence",
+    "connector-sharepoint",
+    "connector-git",
+    "connector-slack",
+]
+connector-upload = ["dep:connector-upload"]
+connector-confluence = ["dep:connector-confluence"]
+connector-sharepoint = ["dep:connector-sharepoint"]
+connector-git = ["dep:connector-git"]
+connector-slack = ["dep:connector-slack"]
+
+[dependencies]
+fable-core.workspace = true
+fable-db.workspace = true
+fable-queue.workspace = true
+fable-models.workspace = true
+fable-parsers.workspace = true
+fable-pipeline.workspace = true
+fable-worker.workspace = true
+fable-search.workspace = true
+fable-api.workspace = true
+connector-upload = { workspace = true, optional = true }
+connector-confluence = { workspace = true, optional = true }
+connector-sharepoint = { workspace = true, optional = true }
+connector-git = { workspace = true, optional = true }
+connector-slack = { workspace = true, optional = true }
+
+anyhow.workspace = true
+clap.workspace = true
+reqwest.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[dev-dependencies]
+assert_cmd = "2"
+predicates = "3"
+
+[lints]
+workspace = true

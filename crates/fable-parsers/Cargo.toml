@@ -1,0 +1,12 @@
+[package]
+name = "fable-parsers"
+description = "Streaming document parsers (PDF, DOCX, PPTX, HTML, Markdown, text, tabular)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+
+[lints]
+workspace = true

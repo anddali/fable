@@ -26,3 +26,6 @@ var/
 # IDE
 .idea/
 .vscode/
+
+# Rust
+/target/
