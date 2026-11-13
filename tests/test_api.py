@@ -39,9 +39,7 @@ def test_mcp_exposes_exactly_the_search_tools():
 
     app = FastAPI()
     app.include_router(search.router)
-    mcp = FastApiMCP(
-        app, include_operations=["search_documents", "list_searchable_collections"]
-    )
+    mcp = FastApiMCP(app, include_operations=["search_documents", "list_searchable_collections"])
     tools = {t.name: t for t in mcp.tools}
     assert set(tools) == {"search_documents", "list_searchable_collections"}
     assert "Semantic search" in tools["search_documents"].description

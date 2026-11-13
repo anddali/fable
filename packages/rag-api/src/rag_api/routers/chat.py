@@ -76,7 +76,10 @@ async def chat(
         messages.append({"role": turn.role, "content": turn.content})
     context = _context_block(hits) if hits else "(no snippets matched the query)"
     messages.append(
-        {"role": "user", "content": f"Context snippets:\n\n{context}\n\n---\nQuestion: {body.query}"}
+        {
+            "role": "user",
+            "content": f"Context snippets:\n\n{context}\n\n---\nQuestion: {body.query}",
+        }
     )
 
     try:
