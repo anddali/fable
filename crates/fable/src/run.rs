@@ -31,6 +31,7 @@ pub async fn migrate(config: &BootstrapConfig) -> anyhow::Result<()> {
 pub async fn run(config: BootstrapConfig, role: Option<RoleArg>) -> anyhow::Result<()> {
     let role: Role = role.map(Role::from).unwrap_or(config.role);
     tracing::info!(%role, "starting fable");
+    check_plugins()?;
 
     // Startup migrations are advisory-locked, so replicas may race safely.
     let pool = fable_db::connect(config.require_database_url()?).await?;
@@ -125,5 +126,30 @@ async fn shutdown_signal() {
     tokio::select! {
         () = ctrl_c => {}
         () = term => {}
+    }
+}
+
+/// Fail fast if the compiled-in plugin registry is inconsistent (duplicate
+/// names, configs that accept unknown fields, unknown connection kinds).
+pub fn check_plugins() -> anyhow::Result<()> {
+    use fable_core::plugin::registry;
+    if let Err(problems) = registry::check() {
+        anyhow::bail!("plugin registry is invalid: {}", problems.join("; "));
+    }
+    let catalog = registry::catalog();
+    tracing::info!(
+        connectors = catalog.connector.len(),
+        parsers = catalog.parser.len(),
+        connection_kinds = catalog.connection_kinds.len(),
+        "plugins registered"
+    );
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn plugin_registry_of_the_binary_is_valid() {
+        super::check_plugins().unwrap();
     }
 }

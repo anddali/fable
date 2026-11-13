@@ -30,6 +30,14 @@ connector-slack = { path = "crates/connector-slack" }
 aes = { version = "0.8", features = ["zeroize"] }
 aes-gcm = { version = "0.10", features = ["zeroize"] }
 anyhow = "1"
+async-trait = "0.1"
+bytes = "1"
+chrono = { version = "0.4", default-features = false, features = ["serde", "std"] }
+futures = "0.3"
+futures-core = "0.3"
+inventory = "0.3"
+schemars = "1"
+serde_path_to_error = "0.1"
 axum = "0.8"
 base64 = "0.22"
 clap = { version = "4", features = ["derive"] }
