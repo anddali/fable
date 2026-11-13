@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin · Model roles · Fable (mockup)</title>
+<link rel="stylesheet" href="assets/fable.css">
+<script src="assets/shell.js"></script>
+<style>
+  .roles-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: var(--sp-5); align-items: start; }
+</style>
+</head>
+<body data-nav="a-roles" data-crumbs="Admin|Model roles|Context line">
+<main class="page">
+  <div class="page-head">
+    <div>
+      <h1>Model roles</h1>
+      <p class="lede">Which provider and model does each job. Collections can override Vision and Context line.</p>
+    </div>
+  </div>
+
+  <nav class="tabs" role="tablist" aria-label="Roles">
+    <a href="#" role="tab" aria-selected="false"><i data-icon="check" style="color:var(--ok)"></i>Embedding</a>
+    <a href="#" role="tab" aria-selected="false"><i data-icon="check" style="color:var(--ok)"></i>Chat</a>
+    <a href="#" role="tab" aria-selected="false"><i data-icon="check" style="color:var(--ok)"></i>Vision</a>
+    <a href="#" role="tab" aria-selected="true"><i data-icon="check" style="color:var(--ok)"></i>Context line</a>
+  </nav>
+
+  <div class="grid-4" style="margin-bottom:var(--sp-5)">
+    <div class="card metric"><div class="label">Calls · 7 days</div><div class="value">214,880</div><div class="sub">cache hit 71%</div></div>
+    <div class="card metric"><div class="label">Tokens in / out</div><div class="value">96.1M</div><div class="sub">out 6.4M</div></div>
+    <div class="card metric"><div class="label">Latency p50 / p95</div><div class="value">0.41 s</div><div class="sub">p95 1.9 s</div></div>
+    <div class="card metric"><div class="label">Estimated cost · 7 days</div><div class="value">$31.70</div><div class="sub"><span class="delta-down">0.3% errors</span> · 612 calls</div></div>
+  </div>
+
+  <div class="roles-layout">
+    <section class="card" aria-labelledby="cfg">
+      <div class="card-head"><h2 id="cfg" style="font-size:16px">Default for new collections</h2></div>
+      <div class="card-body stack-4">
+        <p class="small muted">Writes one sentence placing each chunk in its document. That sentence is embedded and full-text indexed with the chunk, but not shown as chunk text.</p>
+        <div class="grid-2">
+          <div class="field"><label class="label" for="r-prov">Provider</label><select class="select" id="r-prov"><option>Anthropic</option></select></div>
+          <div class="field"><label class="label" for="r-model">Model</label><select class="select" id="r-model"><option>claude-haiku-5-5</option></select><span class="help">$0.80 / 1M input tokens</span></div>
+        </div>
+        <fieldset class="field" style="border:0;padding:0;margin:0">
+          <legend class="label" style="margin-bottom:6px">Context from</legend>
+          <div class="segmented" role="group" aria-label="Context scope"><button type="button" aria-pressed="true">Neighbouring chunks</button><button type="button" aria-pressed="false">Whole document</button></div>
+        </fieldset>
+        <div class="field">
+          <label class="label" for="r-win">Neighbour window</label>
+          <div class="slider"><div class="rail"><div class="fill" style="width:25%"></div><div class="thumb" style="left:25%"></div></div><input class="input num" id="r-win" value="2"></div>
+          <span class="help">Chunks before and after (1–5). Smaller windows keep the cache stable when distant parts of a page change.</span>
+        </div>
+        <div class="grid-2">
+          <div class="field"><label class="label" for="r-max">Max tokens</label><input class="input num" id="r-max" value="50"></div>
+          <div class="field"><label class="label" for="r-conc">Concurrency</label><input class="input num" id="r-conc" value="8"></div>
+        </div>
+        <div class="field">
+          <label class="label" for="r-prompt">Prompt</label>
+          <textarea class="textarea mono" id="r-prompt" rows="5" style="font-size:12.5px">Here is a chunk from the document "{title}" (section: {heading_path}).
+Surrounding text: {window}
+Write ONE sentence (max 50 tokens) that situates this chunk within the document, to improve search retrieval. Answer with the sentence only.</textarea>
+          <span class="help">Variables: {title} {heading_path} {window} {chunk}. <a href="#">Reset to default</a></span>
+        </div>
+      </div>
+      <div class="card-foot">
+        <span class="small muted"><span class="changed-dot"></span> 1 unsaved change</span>
+        <div class="spacer"></div>
+        <button class="btn" type="button">Discard</button>
+        <button class="btn btn-primary" type="button">Save…</button>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="try">
+      <div class="card-head">
+        <h2 id="try" style="font-size:16px">Try it</h2>
+        <div class="spacer"></div>
+        <span class="pill pill-ok"><i data-icon="check"></i>0.38 s · 412 in / 31 out</span>
+      </div>
+      <div class="card-body stack-4">
+        <div class="grid-2">
+          <div class="field"><label class="label" for="t-doc">Document</label><select class="select" id="t-doc"><option>Payments service · Scaling runbook</option></select></div>
+          <div class="field"><label class="label" for="t-chunk">Chunk</label><select class="select" id="t-chunk"><option>#14 of 31 · “Scale to 5 replicas…”</option></select></div>
+        </div>
+        <div>
+          <div class="row" style="margin-bottom:6px"><span class="section-title">1 · Prompt sent</span><span class="spacer"></span><button class="btn btn-ghost btn-sm" type="button"><i data-icon="copy"></i>Copy</button></div>
+<pre class="codeblock">Here is a chunk from the document "Payments service · Scaling runbook" (section: Operations &gt; Autoscaling).
+Surrounding text:
+<span class="dim">[#12] HPA targets 60% CPU on the payments-api deployment…
+[#13] Queue depth is exported by the ledger worker as ledger_queue_depth…</span>
+<span class="hl">[#14] Scale to 5 replicas if queue depth exceeds 10k for more than 5 minutes; page the on-call if it keeps growing.</span>
+<span class="dim">[#15] Scaling down is automatic after 30 minutes below 2k…
+[#16] Never scale the ledger writer beyond 1 replica (single-writer lock).</span>
+Write ONE sentence …</pre>
+        </div>
+        <div>
+          <div class="section-title" style="margin-bottom:6px">2 · Generated context line</div>
+          <div class="callout callout-info"><i data-icon="sparkle"></i><div>This chunk is from the Payments service scaling runbook and describes when to manually scale the ledger worker based on queue depth.</div></div>
+        </div>
+        <div>
+          <div class="section-title" style="margin-bottom:6px">3 · Text that will be embedded</div>
+<pre class="codeblock"><span class="dim">Payments service · Scaling runbook
+Operations &gt; Autoscaling</span>
+<span class="hl">This chunk is from the Payments service scaling runbook and describes when to manually scale the ledger worker based on queue depth.</span>
+Scale to 5 replicas if queue depth exceeds 10k for more than 5 minutes; page the on-call if it keeps growing.</pre>
+          <p class="help" style="margin-top:6px">Title + heading path + context line + chunk text. 418 chars · ~105 tokens (limit 8,191 for text-embedding-3-small).</p>
+        </div>
+      </div>
+      <div class="card-foot"><button class="btn btn-primary" type="button"><i data-icon="play"></i>Generate again</button><span class="small muted">Uses the unsaved settings on the left.</span></div>
+    </section>
+  </div>
+</main>
+</body>
+</html>

@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin · Integrations · Fable (mockup)</title>
+<link rel="stylesheet" href="assets/fable.css">
+<script src="assets/shell.js"></script>
+</head>
+<body data-nav="a-integrations" data-crumbs="Admin|Integrations">
+<main class="page">
+  <div class="page-head">
+    <div>
+      <h1>Integrations</h1>
+      <p class="lede">Connections to Confluence, SharePoint, Slack and Git. Sources in collections use these; they never hold credentials themselves.</p>
+    </div>
+    <div class="spacer"></div>
+    <button class="btn btn-primary" type="button"><i data-icon="plus"></i>Add integration</button>
+  </div>
+
+  <div class="callout callout-warn" style="margin-bottom:var(--sp-5)" role="status">
+    <i data-icon="alert"></i>
+    <div><strong>2 connections need attention.</strong> “Confluence – HR” lacks a scope for attachments; “GitHub – docs bot” token expires in 9 days.</div>
+    <div class="spacer"></div>
+    <button class="btn btn-sm" type="button">Show only these</button>
+  </div>
+
+  <div class="table-wrap">
+    <div class="toolbar">
+      <div class="input-group search"><span class="addon"><i data-icon="search"></i></span><input class="input" aria-label="Filter connections" placeholder="Filter by name"></div>
+      <button class="filter-btn" type="button"><i data-icon="plus"></i>Kind</button>
+      <button class="filter-btn active" type="button">Status: <span class="val">Any</span></button>
+      <div class="spacer"></div>
+      <span class="small muted">6 connections</span>
+    </div>
+    <table class="data">
+      <thead><tr>
+        <th aria-sort="ascending"><span class="sort">Name <i data-icon="sortdown"></i></span></th>
+        <th>Kind</th><th>Usable by</th><th class="right">Sources</th><th>Credential</th><th>Status</th><th class="actions"><span class="sr-only">Actions</span></th>
+      </tr></thead>
+      <tbody>
+        <tr>
+          <td><a class="cell-title" href="#">Confluence – general</a><div class="xs muted">acme.atlassian.net · service account</div></td>
+          <td>Confluence</td><td>All users</td><td class="right num">142</td>
+          <td class="small">OAuth client · no expiry</td>
+          <td><span class="pill pill-ok"><i data-icon="check"></i>Healthy</span></td>
+          <td class="actions"><button class="btn btn-ghost btn-sm btn-icon" aria-label="Actions"><i data-icon="more"></i></button></td>
+        </tr>
+        <tr class="selected">
+          <td><a class="cell-title" href="#">Confluence – HR</a><div class="xs muted">acme.atlassian.net · service account</div></td>
+          <td>Confluence</td><td>Group: HR-Editors</td><td class="right num">6</td>
+          <td class="small">Scoped token · expires 2027-03-01</td>
+          <td><span class="pill pill-danger"><i data-icon="error"></i>Needs attention</span></td>
+          <td class="actions"><button class="btn btn-ghost btn-sm btn-icon" aria-label="Actions"><i data-icon="more"></i></button></td>
+        </tr>
+        <tr>
+          <td><a class="cell-title" href="#">GitHub – docs bot</a><div class="xs muted">github.com · token</div></td>
+          <td>Git</td><td>All users</td><td class="right num">23</td>
+          <td class="small">Token · <strong style="color:var(--warn)">expires in 9 days</strong></td>
+          <td><span class="pill pill-warn"><i data-icon="clock"></i>Expiring</span></td>
+          <td class="actions"><button class="btn btn-ghost btn-sm btn-icon" aria-label="Actions"><i data-icon="more"></i></button></td>
+        </tr>
+        <tr>
+          <td><a class="cell-title" href="#">SharePoint – HR tenant</a><div class="xs muted">tenant 7a1e…c03 · app registration</div></td>
+          <td>SharePoint</td><td>Group: HR-Editors</td><td class="right num">4</td>
+          <td class="small">Client secret · expires 2027-08-14</td>
+          <td><span class="pill pill-ok"><i data-icon="check"></i>Healthy</span></td>
+          <td class="actions"><button class="btn btn-ghost btn-sm btn-icon" aria-label="Actions"><i data-icon="more"></i></button></td>
+        </tr>
+        <tr>
+          <td><a class="cell-title" href="#">Slack – eng workspace</a><div class="xs muted">acme-eng · bot</div></td>
+          <td>Slack</td><td>Admins only</td><td class="right num">3</td>
+          <td class="small">Bot token · no expiry</td>
+          <td><span class="pill pill-ok"><i data-icon="check"></i>Healthy</span></td>
+          <td class="actions"><button class="btn btn-ghost btn-sm btn-icon" aria-label="Actions"><i data-icon="more"></i></button></td>
+        </tr>
+        <tr>
+          <td><a class="cell-title" href="#">Confluence (imported)</a><div class="xs muted">Imported from env on first boot</div></td>
+          <td>Confluence</td><td>All users</td><td class="right num">11</td>
+          <td class="small muted">No credential</td>
+          <td><span class="pill pill-danger"><i data-icon="lock"></i>Credentials required</span></td>
+          <td class="actions"><button class="btn btn-ghost btn-sm btn-icon" aria-label="Actions"><i data-icon="more"></i></button></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</main>
+
+<div class="scrim" aria-hidden="true"></div>
+<aside class="drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
+  <div class="drawer-head">
+    <span class="logo">Cf</span>
+    <div><h2 id="drawer-title" style="font-size:18px">Confluence – HR</h2><div class="xs muted">Confluence Cloud · 6 sources in 3 collections</div></div>
+    <div class="spacer"></div>
+    <button class="btn btn-ghost btn-icon" aria-label="Close"><i data-icon="x"></i></button>
+  </div>
+  <div class="drawer-body">
+    <div class="callout callout-danger" role="alert">
+      <i data-icon="error"></i>
+      <div class="stack-3" style="gap:6px">
+        <strong>4 of 5 checks passed · tested 1 min ago</strong>
+        <ul class="steps-list">
+          <li><i data-icon="check" style="color:var(--ok)"></i>Token accepted by api.atlassian.com</li>
+          <li><i data-icon="check" style="color:var(--ok)"></i>Space lookup · 3 spaces visible</li>
+          <li><i data-icon="check" style="color:var(--ok)"></i>Page list &amp; children</li>
+          <li><i data-icon="check" style="color:var(--ok)"></i>Page body</li>
+          <li><i data-icon="x" style="color:var(--danger)"></i><span><strong>Attachment download · 403 Forbidden.</strong> The token probably lacks <code>read:attachment:confluence</code>. Add the scope in Atlassian Administration, then test again.</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="field"><label class="label" for="i-name">Name</label><input class="input" id="i-name" value="Confluence – HR"></div>
+    <div class="grid-2">
+      <div class="field"><label class="label" for="i-site">Site URL</label><input class="input" id="i-site" value="https://acme.atlassian.net"></div>
+      <div class="field"><label class="label" for="i-cloud">Cloud ID</label><input class="input mono" id="i-cloud" value="4f1c2b7e-…-9e2a"><span class="help">Found automatically from the site URL. This is not the organization ID.</span></div>
+    </div>
+    <div class="field">
+      <span class="label">Authentication</span>
+      <div class="segmented" role="group" aria-label="Authentication method"><button type="button" aria-pressed="false">OAuth client credentials</button><button type="button" aria-pressed="true">Scoped API token</button></div>
+    </div>
+    <div class="field">
+      <span class="label">API token</span>
+      <div class="secret"><i data-icon="lock"></i><span>Set · ends in <span class="mono">…Q7mz</span> · updated 3 days ago</span><span class="spacer"></span><button class="btn btn-sm" type="button">Replace</button></div>
+    </div>
+    <div class="field"><label class="label" for="i-exp">Token expires on</label><input class="input" id="i-exp" value="2027-03-01"><span class="help">We warn admins 30 days before and mark the connection “Needs attention” when it expires.</span></div>
+    <div class="field">
+      <label class="label" for="i-usable">Usable by</label>
+      <div class="picker" id="i-usable"><span class="tag">HR-Editors<button aria-label="Remove HR-Editors"><i data-icon="x"></i></button></span><input class="input" aria-label="Add group" placeholder="Add Entra group…"></div>
+      <span class="help">Only members can attach sources through this connection.</span>
+    </div>
+  </div>
+  <div class="drawer-foot">
+    <button class="btn btn-danger" type="button"><i data-icon="trash"></i>Delete…</button>
+    <div class="spacer"></div>
+    <button class="btn" type="button"><i data-icon="zap"></i>Test again</button>
+    <button class="btn btn-primary" type="button">Save changes</button>
+  </div>
+</aside>
+</body>
+</html>

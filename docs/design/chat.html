@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chat · Fable (mockup)</title>
+<link rel="stylesheet" href="assets/fable.css">
+<script src="assets/shell.js"></script>
+<style>
+  main.page { padding: 0; max-width: none; }
+  .fb-pop { position: relative; }
+  .fb-pop .popover { top: 38px; left: 0; width: 380px; padding: var(--sp-4); }
+</style>
+</head>
+<body data-nav="chat" data-crumbs="Workspace|Chat">
+<main class="page">
+  <div class="chat">
+    <section class="chat-thread" aria-label="Conversation">
+      <div class="chat-scroll" aria-live="polite">
+        <div class="msg msg-user">
+          <span class="avatar" aria-hidden="true">DK</span>
+          <div class="msg-body"><div class="bubble">When should we scale the ledger worker, and is there a limit?</div></div>
+        </div>
+
+        <div class="msg">
+          <span class="brand-mark" aria-hidden="true" style="width:30px;height:30px">F</span>
+          <div class="msg-body">
+            <div class="answer">
+              <p>Scale the ledger worker to <strong>5 replicas</strong> when the queue depth stays above <strong>10k for more than 5 minutes</strong>, and page the on-call if it keeps growing <a class="cite" href="#c1" aria-label="Source 1">1</a>. Scaling back down is automatic after 30 minutes below 2k <a class="cite" href="#c1" aria-label="Source 1">1</a>.</p>
+              <p>There is a hard limit: the ledger <em>writer</em> must stay at <strong>1 replica</strong> because of the single-writer lock <a class="cite" href="#c1" aria-label="Source 1">1</a><a class="cite" href="#c2" aria-label="Source 2">2</a>. In the August incident, scaling consumers to 8 made lock contention worse rather than better <a class="cite" href="#c3" aria-label="Source 3">3</a>.</p>
+            </div>
+            <div class="row" style="margin-top:var(--sp-1)">
+              <span class="xs muted">gpt-4.1-mini · 6 chunks · 2.1 s</span>
+              <span class="spacer"></span>
+              <button class="btn btn-ghost btn-sm" type="button"><i data-icon="copy"></i>Copy</button>
+              <button class="btn btn-ghost btn-sm btn-icon" type="button" aria-label="Good answer" aria-pressed="false"><i data-icon="thumbup"></i></button>
+              <div class="fb-pop">
+                <button class="btn btn-sm btn-icon" type="button" aria-label="Bad answer" aria-pressed="true" style="color:var(--danger);border-color:var(--danger)"><i data-icon="thumbdown"></i></button>
+                <div class="popover stack-3" role="dialog" aria-label="Tell us what went wrong" style="left:auto;right:0">
+                  <strong class="small">What went wrong? <span class="muted" style="font-weight:400">optional</span></strong>
+                  <div class="row wrap">
+                    <button class="btn btn-sm" type="button" aria-pressed="true" style="border-color:var(--accent);background:var(--accent-soft)">Missing information</button>
+                    <button class="btn btn-sm" type="button">Wrong source</button>
+                    <button class="btn btn-sm" type="button">Outdated</button>
+                    <button class="btn btn-sm" type="button">Not grounded</button>
+                  </div>
+                  <textarea class="textarea" rows="2" aria-label="Comment">It should mention the 2026 runbook update for the new queue thresholds.</textarea>
+                  <p class="xs muted">Shared with the owners of the collections used. The question, answer and sources are stored with your feedback.</p>
+                  <div class="row"><div class="spacer"></div><button class="btn btn-sm btn-ghost" type="button">Cancel</button><button class="btn btn-sm btn-primary" type="button">Send feedback</button></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="composer">
+        <div class="composer-box">
+          <textarea class="textarea" aria-label="Message" placeholder="Ask a follow-up…"></textarea>
+          <div class="row" style="padding:var(--sp-2) var(--sp-3);border-top:1px solid var(--border)">
+            <button class="btn btn-sm" type="button"><i data-icon="folder"></i>2 collections</button>
+            <button class="btn btn-sm" type="button"><i data-icon="filter"></i>Updated · 90 days</button>
+            <span class="spacer"></span>
+            <span class="xs muted"><span class="kbd">Enter</span> send · <span class="kbd">Shift Enter</span> new line</span>
+            <button class="btn btn-primary btn-sm" type="button" aria-label="Send"><i data-icon="send"></i></button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <aside class="chat-side" aria-labelledby="src-title">
+      <div class="row"><h2 id="src-title" style="font-size:15px">Sources</h2><span class="spacer"></span><span class="xs muted">6 retrieved · 3 cited</span></div>
+      <div class="source-card active" id="c1">
+        <div class="row"><span class="cite">1</span><a class="cell-title" href="#">Payments service · Scaling runbook</a></div>
+        <div class="xs muted">Operations › Autoscaling · Confluence</div>
+        <p class="small">Scale to 5 replicas if queue depth exceeds 10k for more than 5 minutes; page the on-call if it keeps growing…</p>
+      </div>
+      <div class="source-card" id="c2">
+        <div class="row"><span class="cite">2</span><a class="cell-title" href="#">Ledger worker design</a></div>
+        <div class="xs muted">Architecture › Ledger · Confluence</div>
+        <p class="small">Throughput is bounded by the writer lock, so adding consumers helps only until…</p>
+      </div>
+      <div class="source-card" id="c3">
+        <div class="row"><span class="cite">3</span><a class="cell-title" href="#">Incident 2026-08-14: ledger backlog</a></div>
+        <div class="xs muted">Post-mortems · Confluence</div>
+        <p class="small">On-call scaled consumers to 8, which made lock contention worse…</p>
+      </div>
+      <details class="small"><summary style="cursor:pointer" class="muted">3 more retrieved, not cited</summary><ul class="steps-list" style="margin-top:var(--sp-2)"><li>PagerDuty setup</li><li>Queue metrics dashboard</li><li>ADR-041: ledger partitioning</li></ul></details>
+    </aside>
+  </div>
+</main>
+</body>
+</html>

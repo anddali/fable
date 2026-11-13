@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>First-run setup · Fable (mockup)</title>
+<link rel="stylesheet" href="assets/fable.css">
+<script src="assets/shell.js"></script>
+<style>
+  .panel[data-step] { display: none; }
+  .panel[data-step].on { display: block; }
+  .wizard-foot { display: flex; gap: var(--sp-2); margin-top: var(--sp-6); padding-top: var(--sp-5); border-top: 1px solid var(--border); align-items: center; }
+  .role-row { display: grid; grid-template-columns: 28px 1fr auto; gap: var(--sp-3); align-items: center; padding: var(--sp-4) var(--sp-5); border-bottom: 1px solid var(--border); }
+  .role-row:last-child { border-bottom: 0; }
+  .role-detail { padding: 0 var(--sp-5) var(--sp-5) calc(var(--sp-5) + 28px + var(--sp-3)); border-bottom: 1px solid var(--border); }
+</style>
+</head>
+<body data-shell="none">
+<div class="wizard">
+  <aside class="wizard-rail" aria-label="Setup progress">
+    <div class="brand" style="border:0;padding:0;height:auto"><span class="brand-mark" aria-hidden="true">F</span><span>Fable</span></div>
+    <div>
+      <h2 style="font-size:18px">Set up Fable</h2>
+      <p class="small muted" style="margin-top:4px">About 10 minutes. Everything here can be changed later under Admin.</p>
+    </div>
+    <ol class="stepper" id="stepper">
+      <li data-i="1"><span class="bullet">1</span><div><a href="?step=1" class="s-title">Model provider</a><div class="s-sub">OpenAI · tested</div></div></li>
+      <li data-i="2"><span class="bullet">2</span><div><a href="?step=2" class="s-title">Model roles</a><div class="s-sub">Embedding required</div></div></li>
+      <li data-i="3"><span class="bullet">3</span><div><a href="?step=3" class="s-title">Integration</a><div class="s-sub">Confluence, SharePoint, Slack or Git</div></div></li>
+      <li data-i="4"><span class="bullet">4</span><div><a href="?step=4" class="s-title">First collection</a><div class="s-sub">A home for your documents</div></div></li>
+      <li data-i="5"><span class="bullet">5</span><div><a href="?step=5" class="s-title">Add a source</a><div class="s-sub">Paste a link</div></div></li>
+      <li data-i="6"><span class="bullet">6</span><div><a href="?step=6" class="s-title">First search</a><div class="s-sub">See it work</div></div></li>
+    </ol>
+    <div class="spacer"></div>
+    <div class="callout small">
+      <i data-icon="lock"></i>
+      <div>Credentials are encrypted in the database and never shown again after you save them.</div>
+    </div>
+  </aside>
+
+  <main class="wizard-main">
+    <div class="wizard-panel">
+
+      <!-- ========================================================= STEP 1 -->
+      <section class="panel" data-step="1" aria-labelledby="s1">
+        <p class="xs muted">Step 1 of 6</p>
+        <h1 id="s1">Connect a model provider</h1>
+        <p class="muted" style="margin-top:6px">Fable needs an embedding model to index documents. Pick where your models run; you can add more providers later.</p>
+
+        <div class="provider-grid" role="radiogroup" aria-label="Provider" style="margin-top:var(--sp-6)">
+          <div class="provider on" role="radio" aria-checked="true" tabindex="0"><span class="logo">OA</span><div><strong>OpenAI</strong><div class="xs muted">API key</div></div></div>
+          <div class="provider" role="radio" aria-checked="false" tabindex="-1"><span class="logo">Az</span><div><strong>Azure OpenAI</strong><div class="xs muted">Endpoint + key or Entra</div></div></div>
+          <div class="provider" role="radio" aria-checked="false" tabindex="-1"><span class="logo">An</span><div><strong>Anthropic</strong><div class="xs muted">Chat, vision, context</div></div></div>
+          <div class="provider" role="radio" aria-checked="false" tabindex="-1"><span class="logo">Ol</span><div><strong>Ollama</strong><div class="xs muted">Local, base URL</div></div></div>
+          <div class="provider" role="radio" aria-checked="false" tabindex="-1"><span class="logo">LL</span><div><strong>LiteLLM</strong><div class="xs muted">Proxy + virtual key</div></div></div>
+          <div class="provider" role="radio" aria-checked="false" tabindex="-1"><span class="logo">{ }</span><div><strong>OpenAI-compatible</strong><div class="xs muted">vLLM, LM Studio, TGI</div></div></div>
+        </div>
+
+        <div class="card card-pad stack-4" style="margin-top:var(--sp-5)">
+          <div class="grid-2">
+            <div class="field"><label class="label" for="p-name">Name</label><input class="input" id="p-name" value="OpenAI"><span class="help">Shown in model pickers.</span></div>
+            <div class="field"><label class="label" for="p-org">Organization ID <span class="opt">optional</span></label><input class="input" id="p-org" placeholder="org-…"></div>
+          </div>
+          <div class="field">
+            <label class="label" for="p-key">API key</label>
+            <input class="input mono" id="p-key" type="password" value="sk-proj-xxxxxxxxxxxxxxxxxxxx" autocomplete="off">
+            <span class="help">Stored encrypted. After saving, only the last 4 characters are shown.</span>
+          </div>
+          <div class="callout callout-ok" role="status">
+            <i data-icon="okc"></i>
+            <div><strong>Connected.</strong> 87 models found (12 embedding, 41 chat, 18 vision) · 212 ms</div>
+            <div class="spacer"></div>
+            <button class="btn btn-sm" type="button"><i data-icon="refresh"></i>Test again</button>
+          </div>
+        </div>
+
+        <div class="wizard-foot">
+          <span class="small muted">Test passes before you can continue.</span>
+          <div class="spacer"></div>
+          <a class="btn btn-primary" href="?step=2">Save and continue <i data-icon="right"></i></a>
+        </div>
+      </section>
+
+      <!-- ========================================================= STEP 2 -->
+      <section class="panel" data-step="2" aria-labelledby="s2">
+        <p class="xs muted">Step 2 of 6</p>
+        <h1 id="s2">Choose models for each job</h1>
+        <p class="muted" style="margin-top:6px">Embedding is required. The others are optional; anything you skip stays off until you set it up.</p>
+
+        <div class="card" style="margin-top:var(--sp-6)">
+          <div class="role-row">
+            <span class="pill pill-ok" style="padding:0;width:28px;justify-content:center" role="img" aria-label="Configured"><i data-icon="check"></i></span>
+            <div><h3 style="font-size:15px">Embedding <span class="pill" style="margin-left:6px">Required</span></h3><div class="small muted">Turns text into vectors for search. Platform-wide.</div></div>
+            <button class="btn btn-sm btn-ghost" type="button" aria-expanded="true">Collapse <i data-icon="up"></i></button>
+          </div>
+          <div class="role-detail stack-4" style="padding-top:var(--sp-1)">
+            <div class="grid-2">
+              <div class="field"><label class="label" for="e-prov">Provider</label><select class="select" id="e-prov"><option>OpenAI</option></select></div>
+              <div class="field"><label class="label" for="e-model">Model</label><select class="select" id="e-model"><option>text-embedding-3-small · 1536 dims</option></select><span class="help">Only models that can embed are listed. <a href="#">Enter a model name manually</a></span></div>
+            </div>
+            <div class="callout callout-ok" role="status">
+              <i data-icon="okc"></i>
+              <div><strong>Test passed.</strong> Embedded “How do I rotate the on-call schedule?” → 1536 dimensions · 143 ms</div>
+            </div>
+          </div>
+
+          <div class="role-row">
+            <span class="pill pill-ok" style="padding:0;width:28px;justify-content:center" role="img" aria-label="Configured"><i data-icon="check"></i></span>
+            <div><h3 style="font-size:15px">Chat <span class="pill pill-info" style="margin-left:6px">Recommended</span></h3><div class="small muted">gpt-4.1-mini · answered the sample question in 1.2 s</div></div>
+            <button class="btn btn-sm" type="button">Edit</button>
+          </div>
+          <div class="role-row">
+            <span class="pill" style="padding:0;width:28px;justify-content:center" role="img" aria-label="Not configured">—</span>
+            <div><h3 style="font-size:15px">Context line</h3><div class="small muted">Adds one sentence of context to each chunk. Improves retrieval; costs one cheap LLM call per new chunk.</div></div>
+            <button class="btn btn-sm" type="button"><i data-icon="plus"></i>Set up</button>
+          </div>
+          <div class="role-row">
+            <span class="pill" style="padding:0;width:28px;justify-content:center" role="img" aria-label="Not configured">—</span>
+            <div><h3 style="font-size:15px">Vision</h3><div class="small muted">Describes images and diagrams inside documents.</div></div>
+            <button class="btn btn-sm" type="button"><i data-icon="plus"></i>Set up</button>
+          </div>
+        </div>
+
+        <div class="wizard-foot">
+          <a class="btn btn-ghost" href="?step=1"><i data-icon="left"></i>Back</a>
+          <div class="spacer"></div>
+          <a class="btn btn-primary" href="?step=3">Continue <i data-icon="right"></i></a>
+        </div>
+      </section>
+
+      <!-- ========================================================= STEP 3 -->
+      <section class="panel" data-step="3" aria-labelledby="s3">
+        <p class="xs muted">Step 3 of 6</p>
+        <h1 id="s3">Connect where your documents live</h1>
+        <p class="muted" style="margin-top:6px">One integration is enough to start. Only uploading files? <a href="?step=4">Skip this step</a>.</p>
+
+        <div class="provider-grid" role="radiogroup" aria-label="Integration" style="margin-top:var(--sp-6);grid-template-columns:repeat(4,1fr)">
+          <div class="provider on" role="radio" aria-checked="true" tabindex="0"><span class="logo">Cf</span><strong>Confluence</strong></div>
+          <div class="provider" role="radio" aria-checked="false" tabindex="-1"><span class="logo">SP</span><strong>SharePoint</strong></div>
+          <div class="provider" role="radio" aria-checked="false" tabindex="-1"><span class="logo">Sl</span><strong>Slack</strong></div>
+          <div class="provider" role="radio" aria-checked="false" tabindex="-1"><span class="logo">Git</span><strong>Git</strong></div>
+        </div>
+
+        <div class="card card-pad stack-4" style="margin-top:var(--sp-5)">
+          <div class="callout callout-info">
+            <i data-icon="info"></i>
+            <div>Confluence needs an <strong>Atlassian service account</strong>, not a personal API token. <a href="#">How to create one <i data-icon="external"></i></a></div>
+          </div>
+          <div class="grid-2">
+            <div class="field"><label class="label" for="c-name">Name</label><input class="input" id="c-name" value="Confluence – service account"></div>
+            <div class="field">
+              <label class="label" for="c-site">Site URL</label>
+              <input class="input" id="c-site" value="https://acme.atlassian.net">
+              <span class="help" style="color:var(--ok)"><i data-icon="check"></i> Cloud ID found: <span class="mono">4f1c…9e2a</span> · <a href="#">Edit</a></span>
+            </div>
+          </div>
+          <fieldset class="field" style="border:0;padding:0;margin:0">
+            <legend class="label" style="margin-bottom:6px">Authentication</legend>
+            <div class="choice-cards grid-2">
+              <div class="choice on" role="radio" aria-checked="true" tabindex="0"><span class="radio on"></span><div><h4>OAuth client credentials</h4><p class="xs muted">Recommended. Secret doesn’t expire.</p></div></div>
+              <div class="choice" role="radio" aria-checked="false" tabindex="-1"><span class="radio"></span><div><h4>Scoped API token</h4><p class="xs muted">Expires in 1–365 days; we’ll remind you.</p></div></div>
+            </div>
+          </fieldset>
+          <div class="grid-2">
+            <div class="field"><label class="label" for="c-id">Client ID</label><input class="input mono" id="c-id" value="sa-6YcQ2…"></div>
+            <div class="field"><label class="label" for="c-sec">Client secret</label><input class="input mono" id="c-sec" type="password" value="xxxxxxxxxxxxxxxx"></div>
+          </div>
+          <div class="field">
+            <label class="label" for="c-usable">Who can use this connection</label>
+            <select class="select" id="c-usable"><option>All signed-in users</option><option>Admins only</option><option>Specific Entra groups…</option></select>
+            <span class="help">Users can only attach sources through connections they may use. The service account sees exactly the spaces it’s been granted.</span>
+          </div>
+          <div class="callout callout-ok" role="status">
+            <i data-icon="okc"></i>
+            <div class="stack-3" style="gap:6px">
+              <strong>All 5 checks passed · 41 spaces visible</strong>
+              <ul class="steps-list">
+                <li><i data-icon="check" class="icon" style="color:var(--ok)"></i>Token issued (OAuth 2.0)</li>
+                <li><i data-icon="check" class="icon" style="color:var(--ok)"></i>Space lookup</li>
+                <li><i data-icon="check" class="icon" style="color:var(--ok)"></i>Page list &amp; children</li>
+                <li><i data-icon="check" class="icon" style="color:var(--ok)"></i>Page body</li>
+                <li><i data-icon="check" class="icon" style="color:var(--ok)"></i>Attachment download</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="wizard-foot">
+          <a class="btn btn-ghost" href="?step=2"><i data-icon="left"></i>Back</a>
+          <div class="spacer"></div>
+          <a class="btn" href="?step=4">Skip</a>
+          <a class="btn btn-primary" href="?step=4">Save and continue <i data-icon="right"></i></a>
+        </div>
+      </section>
+
+      <!-- ========================================================= STEP 4 -->
+      <section class="panel" data-step="4" aria-labelledby="s4">
+        <p class="xs muted">Step 4 of 6</p>
+        <h1 id="s4">Create your first collection</h1>
+        <p class="muted" style="margin-top:6px">A collection groups sources that are searched together and shared with the same people.</p>
+
+        <div class="card card-pad stack-4" style="margin-top:var(--sp-6)">
+          <div class="field"><label class="label" for="col-name">Name</label><input class="input" id="col-name" value="Engineering handbook"></div>
+          <div class="field"><label class="label" for="col-desc">Description <span class="opt">optional</span></label><input class="input" id="col-desc" value="Runbooks, ADRs and onboarding docs from the ENG space."></div>
+          <fieldset class="field" style="border:0;padding:0;margin:0">
+            <legend class="label" style="margin-bottom:6px">Who can search it</legend>
+            <div class="choice-cards grid-2">
+              <div class="choice" role="radio" aria-checked="false" tabindex="-1"><span class="radio"></span><div><h4>Only me</h4><p class="xs muted">Share with people or groups later.</p></div></div>
+              <div class="choice on" role="radio" aria-checked="true" tabindex="0"><span class="radio on"></span><div><h4>Everyone signed in</h4><p class="xs muted">Read access for all users.</p></div></div>
+            </div>
+          </fieldset>
+          <div>
+            <div class="section-title" style="margin-bottom:var(--sp-2)">Indexing settings · platform defaults</div>
+            <dl class="kv">
+              <dt>Chunk size</dt><dd>1,000 characters (min 200), heading path on</dd>
+              <dt>Context line</dt><dd>Off — no Context line model yet</dd>
+              <dt>Vision</dt><dd>Off — no Vision model yet</dd>
+              <dt>Full-text language</dt><dd>English</dd>
+            </dl>
+            <p class="help" style="margin-top:var(--sp-2)">Change them any time in the collection’s Indexing settings.</p>
+          </div>
+        </div>
+
+        <div class="wizard-foot">
+          <a class="btn btn-ghost" href="?step=3"><i data-icon="left"></i>Back</a>
+          <div class="spacer"></div>
+          <a class="btn btn-primary" href="?step=5">Create collection <i data-icon="right"></i></a>
+        </div>
+      </section>
+
+      <!-- ========================================================= STEP 5 -->
+      <section class="panel" data-step="5" aria-labelledby="s5">
+        <p class="xs muted">Step 5 of 6</p>
+        <h1 id="s5">Add a source</h1>
+        <p class="muted" style="margin-top:6px">Paste a link to a Confluence space or page. We’ll work out the rest.</p>
+
+        <div class="card card-pad stack-4" style="margin-top:var(--sp-6)">
+          <div class="field">
+            <label class="label" for="src-link">Confluence link</label>
+            <div class="input-group"><span class="addon"><i data-icon="link"></i></span><input class="input input-lg" id="src-link" value="https://acme.atlassian.net/wiki/spaces/ENG/overview"></div>
+          </div>
+          <div class="callout callout-ok" role="status">
+            <i data-icon="okc"></i>
+            <div><strong>Space ENG · Engineering</strong><div class="xs muted">1,240 pages · last edited 2 hours ago · via Confluence – service account</div></div>
+          </div>
+          <div class="field"><label class="label" for="src-name">Source name</label><input class="input" id="src-name" value="ENG space"></div>
+        </div>
+
+        <div class="wizard-foot">
+          <a class="btn btn-ghost" href="?step=4"><i data-icon="left"></i>Back</a>
+          <div class="spacer"></div>
+          <a class="btn" href="?step=6">Skip, I’ll upload files</a>
+          <a class="btn btn-primary" href="?step=6">Add and start sync <i data-icon="right"></i></a>
+        </div>
+      </section>
+
+      <!-- ========================================================= STEP 6 -->
+      <section class="panel" data-step="6" aria-labelledby="s6">
+        <p class="xs muted">Step 6 of 6</p>
+        <h1 id="s6">Try your first search</h1>
+        <p class="muted" style="margin-top:6px">Indexing runs in the background. You can search what’s done so far.</p>
+
+        <div class="card card-pad stack-3" style="margin-top:var(--sp-6)" aria-live="polite">
+          <div class="row"><i data-icon="refresh" class="spin" style="color:var(--accent)"></i><strong>Indexing ENG space</strong><span class="spacer"></span><span class="small muted num">312 of 1,240 pages · about 6 min left</span></div>
+          <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="1240" aria-valuenow="312" aria-label="Indexing progress"><span style="width:25%"></span></div>
+        </div>
+
+        <div class="card" style="margin-top:var(--sp-4)">
+          <div class="card-body" style="padding-bottom:var(--sp-3)">
+            <div class="input-group"><span class="addon"><i data-icon="search"></i></span><input class="input input-lg" aria-label="Search" value="how do we rotate on-call"></div>
+          </div>
+          <div class="hit">
+            <a class="hit-title" href="#">On-call rotation</a>
+            <div class="hit-path">Runbooks <i data-icon="right"></i> Incident response <i data-icon="right"></i> Rotation</div>
+            <p class="hit-text" style="margin-top:6px">The primary <mark>on-call</mark> engineer hands over on Mondays at 10:00. To <mark>rotate</mark> early, swap in PagerDuty and post in #eng-oncall…</p>
+          </div>
+          <div class="hit">
+            <a class="hit-title" href="#">PagerDuty setup</a>
+            <div class="hit-path">Runbooks <i data-icon="right"></i> Tooling</div>
+            <p class="hit-text" style="margin-top:6px">Schedules are owned by the team lead; overrides for the <mark>on-call</mark> week…</p>
+          </div>
+        </div>
+
+        <div class="wizard-foot">
+          <span class="small muted"><i data-icon="check" style="color:var(--ok)"></i> Setup complete. You can rerun it from Admin → Overview.</span>
+          <div class="spacer"></div>
+          <a class="btn btn-primary" href="collection-detail.html">Go to Engineering handbook <i data-icon="right"></i></a>
+        </div>
+      </section>
+
+    </div>
+  </main>
+</div>
+<script>
+  (function () {
+    var step = parseInt(new URLSearchParams(location.search).get("step") || "1", 10);
+    document.querySelectorAll(".panel[data-step]").forEach(function (p) {
+      p.classList.toggle("on", Number(p.dataset.step) === step);
+    });
+    document.querySelectorAll("#stepper li").forEach(function (li) {
+      var i = Number(li.dataset.i);
+      li.classList.toggle("done", i < step);
+      li.classList.toggle("current", i === step);
+      if (i === step) li.querySelector("a").setAttribute("aria-current", "step");
+      if (i < step) li.querySelector(".bullet").innerHTML = window.fableIcon("check");
+    });
+    // keep the theme across step links
+    var t = new URLSearchParams(location.search).get("theme");
+    if (t) document.querySelectorAll('a[href^="?step="]').forEach(function (a) { a.href += "&theme=" + t; });
+  })();
+</script>
+</body>
+</html>

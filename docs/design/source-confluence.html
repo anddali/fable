@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Add Confluence source · Fable (mockup)</title>
+<link rel="stylesheet" href="assets/fable.css">
+<script src="assets/shell.js"></script>
+<style>
+  .states { display: grid; grid-template-columns: 1fr; gap: var(--sp-3); }
+  .drawer { width: 600px; }
+</style>
+</head>
+<body data-nav="collections" data-crumbs="Collections|Engineering handbook|Sources">
+<main class="page">
+  <div class="page-head">
+    <div><h1>Engineering handbook</h1><p class="lede">Runbooks, ADRs and onboarding docs.</p></div>
+  </div>
+  <nav class="tabs" role="tablist">
+    <a href="collection-detail.html" role="tab" aria-selected="false">Overview</a>
+    <a href="#" role="tab" aria-selected="true">Sources <span class="count">2</span></a>
+    <a href="#" role="tab" aria-selected="false">Documents <span class="count">1,486</span></a>
+  </nav>
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th>Source</th><th>Kind</th><th>Connection</th><th class="right">Documents</th><th>Last sync</th></tr></thead>
+      <tbody>
+        <tr><td><a class="cell-title" href="#">ENG space</a></td><td>Confluence · space</td><td>Confluence – general</td><td class="right num">1,240</td><td><span class="pill pill-ok"><i data-icon="check"></i>18 min ago</span></td></tr>
+        <tr><td><a class="cell-title" href="#">ADR repo</a></td><td>Git</td><td>GitHub – docs bot</td><td class="right num">246</td><td><span class="pill pill-ok"><i data-icon="check"></i>1 h ago</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+</main>
+
+<div class="scrim" aria-hidden="true"></div>
+<aside class="drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
+  <div class="drawer-head">
+    <div><h2 id="drawer-title" style="font-size:18px">Add a source</h2><div class="xs muted">to Engineering handbook</div></div>
+    <div class="spacer"></div>
+    <button class="btn btn-ghost btn-icon" aria-label="Close"><i data-icon="x"></i></button>
+  </div>
+  <div class="drawer-body">
+    <div class="segmented" role="group" aria-label="How to add">
+      <button type="button" aria-pressed="true"><i data-icon="link"></i> Paste a link</button>
+      <button type="button" aria-pressed="false"><i data-icon="upload"></i> Upload files</button>
+      <button type="button" aria-pressed="false">Advanced…</button>
+    </div>
+
+    <div class="field">
+      <label class="label" for="link">Link to a Confluence page or space</label>
+      <div class="input-group"><span class="addon"><i data-icon="link"></i></span><input class="input input-lg" id="link" value="https://acme.atlassian.net/wiki/spaces/PLAT/pages/884211/Platform+runbooks"></div>
+      <span class="help">Space overview, page, or short <span class="mono">/x/…</span> links all work. SharePoint, Slack and Git links are recognised too.</span>
+    </div>
+
+    <div class="card" style="box-shadow:none" aria-live="polite">
+      <div class="card-body stack-3">
+        <div class="row-3">
+          <span class="logo"><i data-icon="page"></i></span>
+          <div>
+            <strong>Platform runbooks</strong>
+            <div class="xs muted">Page in space PLAT · Platform · 37 child pages · edited 3 days ago</div>
+          </div>
+          <span class="spacer"></span>
+          <a class="btn btn-ghost btn-sm" href="#" aria-label="Open in Confluence"><i data-icon="external"></i></a>
+        </div>
+        <fieldset class="choice-cards" style="border:0;padding:0;margin:0">
+          <legend class="sr-only">What to index</legend>
+          <div class="choice on" role="radio" aria-checked="true" tabindex="0"><span class="radio on"></span><div><h4>This page and everything below it</h4><p class="xs muted">38 pages now; new child pages are picked up on each sync.</p></div></div>
+          <div class="choice" role="radio" aria-checked="false" tabindex="-1"><span class="radio"></span><div><h4>Only this page</h4><p class="xs muted">1 page.</p></div></div>
+          <div class="choice" role="radio" aria-checked="false" tabindex="-1"><span class="radio"></span><div><h4>The whole PLAT space</h4><p class="xs muted">612 pages.</p></div></div>
+        </fieldset>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="field"><label class="label" for="s-name">Source name</label><input class="input" id="s-name" value="Platform runbooks"></div>
+      <div class="field">
+        <label class="label" for="s-conn">Connection</label>
+        <select class="select" id="s-conn"><option>Confluence – general</option></select>
+        <span class="help">Matched by site. Only connections you may use are listed.</span>
+      </div>
+    </div>
+
+    <details>
+      <summary class="small" style="cursor:pointer;font-weight:550">Options</summary>
+      <div class="stack-3" style="margin-top:var(--sp-3)">
+        <div class="field"><label class="label" for="s-limit">Page limit <span class="opt">optional</span></label><input class="input num" id="s-limit" placeholder="No limit"></div>
+        <div class="field"><label class="label" for="s-sched">Sync schedule</label><select class="select" id="s-sched"><option>Every hour (collection default)</option></select></div>
+      </div>
+    </details>
+
+    <div class="callout callout-ok" role="status">
+      <i data-icon="okc"></i>
+      <div><strong>Ready.</strong> Fetched “Platform runbooks” as the service account (0.6 s). Sync starts as soon as you add the source.</div>
+    </div>
+
+    <div>
+      <div class="section-title" style="margin-bottom:var(--sp-2)">Other states (design reference)</div>
+      <div class="states">
+        <div class="callout callout-danger"><i data-icon="error"></i><div><strong>That doesn’t look like a Confluence page or space link.</strong> Copy the address from your browser while viewing the page.</div></div>
+        <div class="callout callout-danger"><i data-icon="lock"></i><div><strong>The service account can’t see this page.</strong> Ask a Confluence admin to grant “Confluence – general” access to space HR, or pick another connection.</div></div>
+        <div class="callout callout-warn"><i data-icon="alert"></i><div><strong>No connection you can use covers globex.atlassian.net.</strong> Ask an admin to add one. <a href="#">Copy request</a></div></div>
+        <div class="callout"><i data-icon="refresh" class="spin"></i><div>Checking the link…</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="drawer-foot">
+    <button class="btn" type="button">Cancel</button>
+    <div class="spacer"></div>
+    <button class="btn btn-primary" type="button">Add source and sync</button>
+  </div>
+</aside>
+</body>
+</html>

@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Engineering handbook · Collection · Fable (mockup)</title>
+<link rel="stylesheet" href="assets/fable.css">
+<script src="assets/shell.js"></script>
+<style>
+  .overview { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: var(--sp-5); align-items: start; }
+</style>
+</head>
+<body data-nav="collections" data-crumbs="Collections|Engineering handbook">
+<main class="page">
+  <div class="page-head">
+    <div>
+      <div class="row"><h1>Engineering handbook</h1><button class="btn btn-ghost btn-sm btn-icon" aria-label="Remove from favourites" aria-pressed="true"><i data-icon="star" style="color:var(--warn);fill:currentColor"></i></button></div>
+      <p class="lede">Runbooks, ADRs and onboarding docs · Owner Dana Kowalski · Visible to everyone</p>
+    </div>
+    <div class="spacer"></div>
+    <a class="btn" href="search.html"><i data-icon="search"></i>Search this collection</a>
+    <button class="btn btn-primary" type="button"><i data-icon="refresh"></i>Sync now</button>
+    <button class="btn btn-icon" aria-label="More actions"><i data-icon="more"></i></button>
+  </div>
+
+  <nav class="tabs" role="tablist" aria-label="Collection sections">
+    <a href="#" role="tab" aria-selected="true">Overview</a>
+    <a href="source-confluence.html" role="tab" aria-selected="false">Sources <span class="count">2</span></a>
+    <a href="#" role="tab" aria-selected="false">Documents <span class="count">1,486</span></a>
+    <a href="#" role="tab" aria-selected="false">Syncs</a>
+    <a href="indexing-settings.html" role="tab" aria-selected="false">Indexing settings</a>
+    <a href="#" role="tab" aria-selected="false">Access</a>
+    <a href="evaluation.html" role="tab" aria-selected="false">Evaluation</a>
+    <a href="#" role="tab" aria-selected="false">Feedback <span class="count">3 new</span></a>
+  </nav>
+
+  <div class="grid-4" style="margin-bottom:var(--sp-5)">
+    <div class="card metric"><div class="label">Documents</div><div class="value">1,486</div><div class="sub">1,471 indexed · <a href="#">3 failed</a> · 12 pending</div></div>
+    <div class="card metric"><div class="label">Chunks</div><div class="value">22,904</div><div class="sub">1,000 chars max · context line on</div></div>
+    <div class="card metric"><div class="label">Searches · 7 days</div><div class="value">2,318</div><div class="sub">412 people</div></div>
+    <div class="card metric"><div class="label">Recall@5 · latest eval</div><div class="value">0.86</div><div class="sub"><span class="delta-up">▲ 0.06</span> vs previous run</div></div>
+  </div>
+
+  <div class="overview">
+    <div class="stack-4">
+      <section class="card" aria-labelledby="rb" aria-live="polite">
+        <div class="card-head"><i data-icon="refresh" class="spin" style="color:var(--accent)"></i><h2 id="rb" style="font-size:15px">Re-chunking after settings change</h2><div class="spacer"></div><span class="small muted">started 4 min ago by Dana Kowalski</span></div>
+        <div class="card-body stack-3">
+          <div class="row small"><span class="num"><strong>812</strong> of 1,486 documents</span><span class="spacer"></span><span class="muted">about 3 min left · no source fetch needed</span></div>
+          <div class="progress" role="progressbar" aria-label="Re-chunk progress" aria-valuemin="0" aria-valuemax="1486" aria-valuenow="812"><span style="width:55%"></span></div>
+          <p class="xs muted">Search keeps serving the previous chunks until each document finishes. <a href="indexing-settings.html">View change</a> · <a href="evaluation.html">Run evaluation when done</a></p>
+        </div>
+      </section>
+
+      <section class="table-wrap" aria-labelledby="src">
+        <div class="toolbar"><h2 id="src" style="font-size:15px">Sources</h2><div class="spacer"></div><a class="btn btn-sm" href="source-confluence.html"><i data-icon="plus"></i>Add source</a></div>
+        <table class="data">
+          <thead><tr><th>Source</th><th>Connection</th><th class="right">Documents</th><th>Last sync</th><th>Next</th></tr></thead>
+          <tbody>
+            <tr><td><a class="cell-title" href="#">ENG space</a><div class="xs muted">Confluence · space ENG</div></td><td class="small">Confluence – general</td><td class="right num">1,240</td><td><span class="pill pill-ok"><i data-icon="check"></i>18 min ago · +4 ~11 −0</span></td><td class="small muted">in 42 min</td></tr>
+            <tr><td><a class="cell-title" href="#">ADR repo</a><div class="xs muted">Git · acme/adr@main · docs/**/*.md</div></td><td class="small">GitHub – docs bot <span class="pill pill-warn"><i data-icon="clock"></i>expires 9 d</span></td><td class="right num">246</td><td><span class="pill pill-warn"><i data-icon="alert"></i>1 h ago · 3 failed</span></td><td class="small muted">in 5 h</td></tr>
+          </tbody>
+        </table>
+      </section>
+    </div>
+
+    <div class="stack-4">
+      <section class="card card-pad stack-3" aria-labelledby="set">
+        <div class="row"><h2 id="set" style="font-size:15px">Indexing settings</h2><div class="spacer"></div><a class="btn btn-sm btn-ghost" href="indexing-settings.html">Edit</a></div>
+        <dl class="kv">
+          <dt>Chunks</dt><dd>1,000 chars · min 200</dd>
+          <dt>Context line</dt><dd>On · claude-haiku-5-5 · window 2</dd>
+          <dt>Vision</dt><dd>Platform default (llava:13b)</dd>
+          <dt>Language</dt><dd>English</dd>
+          <dt>Embedding</dt><dd>text-embedding-3-small</dd>
+        </dl>
+      </section>
+      <section class="card card-pad stack-3" aria-labelledby="ev">
+        <div class="row"><h2 id="ev" style="font-size:15px">Latest evaluation</h2><div class="spacer"></div><a class="btn btn-sm btn-ghost" href="evaluation.html">Open</a></div>
+        <p class="small">“On-call &amp; incidents” · 48 questions · run 2 days ago</p>
+        <dl class="kv"><dt>Recall@1 / 5 / 10</dt><dd class="num">0.62 / 0.86 / 0.92</dd><dt>MRR</dt><dd class="num">0.71</dd><dt>Settings</dt><dd>1,000 chars · context on</dd></dl>
+      </section>
+      <section class="card card-pad stack-3" aria-labelledby="fb">
+        <div class="row"><h2 id="fb" style="font-size:15px">Recent feedback</h2><div class="spacer"></div><a class="btn btn-sm btn-ghost" href="#">All</a></div>
+        <div class="row small"><i data-icon="thumbdown" style="color:var(--danger)"></i><span>“Didn’t find the 2026 rotation policy”</span></div>
+        <div class="row small"><i data-icon="thumbup" style="color:var(--ok)"></i><span>“Exactly the runbook I needed”</span></div>
+      </section>
+    </div>
+  </div>
+</main>
+<div class="toast" role="status"><i data-icon="okc" style="color:var(--ok)"></i><div><strong>Sync finished: ENG space</strong><div class="xs muted">4 new, 11 updated, 0 removed · <a href="#">Details</a></div></div><div class="spacer"></div><button class="btn btn-ghost btn-sm btn-icon" aria-label="Dismiss"><i data-icon="x"></i></button></div>
+</body>
+</html>
