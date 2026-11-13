@@ -169,13 +169,14 @@ async def _describe_images(
         description = descriptions.get(id(block), "").strip()
         if not description:
             continue
-        key = figure_blob_key(
-            document.collection_id, document.id, document.content_hash, figure_n
-        )
+        key = figure_blob_key(document.collection_id, document.id, document.content_hash, figure_n)
         figure_n += 1
         blob_store.put(key, base64.b64decode(block.metadata.get("image_b64", "")))
         metadata = {k: v for k, v in block.metadata.items() if k not in ("image_b64", "image_mime")}
-        metadata["figure"] = {"key": key, **({"page": metadata["page"]} if "page" in metadata else {})}
+        metadata["figure"] = {
+            "key": key,
+            **({"page": metadata["page"]} if "page" in metadata else {}),
+        }
         blocks.append(Block(type="paragraph", text=f"[Figure: {description}]", metadata=metadata))
     parsed.blocks = blocks
     return parsed
@@ -186,12 +187,7 @@ async def _figure_keys(session: AsyncSession, document_id: uuid.UUID | str) -> s
     result = await session.execute(
         select(Chunk.chunk_metadata).where(Chunk.document_id == document_id)
     )
-    return {
-        f["key"]
-        for (meta,) in result
-        for f in (meta or {}).get("figures", [])
-        if f.get("key")
-    }
+    return {f["key"] for (meta,) in result for f in (meta or {}).get("figures", []) if f.get("key")}
 
 
 async def remove_document_chunks(
@@ -219,10 +215,7 @@ async def collection_blob_keys(session: AsyncSession, collection_id: uuid.UUID) 
         select(Chunk.chunk_metadata).where(Chunk.collection_id == collection_id)
     )
     keys.update(
-        f["key"]
-        for (meta,) in figures
-        for f in (meta or {}).get("figures", [])
-        if f.get("key")
+        f["key"] for (meta,) in figures for f in (meta or {}).get("figures", []) if f.get("key")
     )
     # Staging blobs for manual uploads live under uploads/{source}/... — keyed by
     # source, not collection/document, so they aren't covered by the rows above.

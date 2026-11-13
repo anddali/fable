@@ -5,8 +5,8 @@ from contextlib import asynccontextmanager
 import structlog
 from fastapi import Depends, FastAPI
 from fastapi.staticfiles import StaticFiles
-from starlette.responses import Response
 from fastapi_mcp import AuthConfig, FastApiMCP
+from starlette.responses import Response
 
 from rag_api.auth import get_principal
 from rag_api.routers import (

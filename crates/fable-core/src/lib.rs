@@ -12,6 +12,6 @@ pub mod plugin;
 pub mod role;
 
 pub use block::{Block, BlockSpan, BlockType, ChunkDraft, ImageRef, Metadata, ParsedDocument};
-pub use config::{BootstrapConfig, ConfigError};
+pub use config::{AuthMode, BootstrapConfig, ConfigError, Environment, MasterKey};
 pub use item::ItemRef;
 pub use role::Role;

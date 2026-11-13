@@ -48,7 +48,9 @@ def _validate_connector(connector: str, config: dict) -> dict:
         ) from exc
 
 
-async def _resolve_link(connector: str, link: str, include_children: bool, settings: Settings) -> dict:
+async def _resolve_link(
+    connector: str, link: str, include_children: bool, settings: Settings
+) -> dict:
     """Turn a pasted URL into a config fragment via the connector's URL parser.
 
     Tries the raw link first — canonical URLs (what "paste a page link" actually
@@ -108,7 +110,10 @@ async def test_source(
     """
     config = dict(body.config)
     if body.link:
-        config = {**config, **await _resolve_link(body.connector, body.link, body.include_children, settings)}
+        config = {
+            **config,
+            **await _resolve_link(body.connector, body.link, body.include_children, settings),
+        }
     try:
         config = _validate_connector(body.connector, config)
     except HTTPException as exc:
@@ -143,7 +148,10 @@ async def create_source(
 ) -> SourceOut:
     config = dict(body.config)
     if body.link:
-        config = {**config, **await _resolve_link(body.connector, body.link, body.include_children, settings)}
+        config = {
+            **config,
+            **await _resolve_link(body.connector, body.link, body.include_children, settings),
+        }
     config = _validate_connector(body.connector, config)
     if not _connector_class(body.connector).ready(settings):  # type: ignore[attr-defined]
         raise HTTPException(

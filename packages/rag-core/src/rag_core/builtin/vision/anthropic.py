@@ -12,7 +12,7 @@ from pydantic import BaseModel
 
 from rag_core.interfaces import VisionPlugin
 
-from .openai_compat import DEFAULT_PROMPT, _RETRYABLE
+from .openai_compat import _RETRYABLE, DEFAULT_PROMPT
 
 
 class AnthropicVisionConfig(BaseModel):

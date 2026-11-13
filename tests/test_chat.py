@@ -13,7 +13,6 @@ from rag_core.config import ChatSettings
 from rag_core.generation import ChatLLMError, chat_completion
 from rag_core.schemas import SearchHit
 
-
 # ---------------------------------------------------------------------------
 # Wiring
 # ---------------------------------------------------------------------------

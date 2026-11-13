@@ -76,7 +76,10 @@ async def test_superseded_blob_is_deleted_on_content_change(tmp_path, monkeypatc
     doc, source, old_key = setup_existing(store, b"version 1")
 
     counts, to_index, deferred = await run_sync(
-        monkeypatch, store, doc, source,
+        monkeypatch,
+        store,
+        doc,
+        source,
         [RawDocument(external_id="page:1", title="t", text="version 2")],
     )
 
@@ -96,7 +99,10 @@ async def test_unchanged_document_keeps_blob(tmp_path, monkeypatch):
     doc, source, old_key = setup_existing(store, b"version 1")
 
     counts, to_index, deferred = await run_sync(
-        monkeypatch, store, doc, source,
+        monkeypatch,
+        store,
+        doc,
+        source,
         [RawDocument(external_id="page:1", title="t", text="version 1")],
     )
 

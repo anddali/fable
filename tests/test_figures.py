@@ -107,9 +107,7 @@ async def test_described_figure_persisted_and_referenced(monkeypatch):
         parsed, PipelineConfig(vision_llm=PluginRef(name="x")), store, document
     )
 
-    expected_key = figure_blob_key(
-        document.collection_id, document.id, document.content_hash, 0
-    )
+    expected_key = figure_blob_key(document.collection_id, document.id, document.content_hash, 0)
     assert store.blobs[expected_key] == b"png-bytes"
     block = result.blocks[0]
     assert block.metadata["figure"] == {"key": expected_key, "page": 3}
