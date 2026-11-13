@@ -1,3 +1,13 @@
+# Legacy Python stack (rag-api + rag-worker + migrate + db), kept so the API
+# contract suite and a rollback can still build and run it until FAB-139.
+# The root Dockerfile now builds the Rust `fable` binary.
+#
+# Run from the repo root:
+#   docker compose -f legacy/docker-compose.python.yml up --build
+# Volume names are prefixed with the compose project name, which defaults to
+# this file's directory ("legacy"). To reuse the volumes of an existing
+# deployment that ran the old root docker-compose.yml, pass its project name
+# (the old checkout directory name), e.g. `-p fable`.
 services:
   db:
     image: pgvector/pgvector:pg17
@@ -17,7 +27,9 @@ services:
       retries: 10
 
   migrate:
-    build: .
+    build:
+      context: ..
+      dockerfile: legacy/Dockerfile.python
     command: ["sh", "-c", "alembic upgrade head && rag-apply-schema"]
     environment: &app-env
       RAG_DATABASE_URL: postgresql+psycopg://rag:rag@db:5432/rag
@@ -55,7 +67,9 @@ services:
         condition: service_healthy
 
   api:
-    build: .
+    build:
+      context: ..
+      dockerfile: legacy/Dockerfile.python
     restart: unless-stopped
     environment: *app-env
     ports:
@@ -72,7 +86,9 @@ services:
       retries: 5
 
   worker:
-    build: .
+    build:
+      context: ..
+      dockerfile: legacy/Dockerfile.python
     restart: unless-stopped
     command: ["rag-worker"]
     environment: *app-env
